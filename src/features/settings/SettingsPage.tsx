@@ -129,6 +129,86 @@ export function SettingsPage() {
           </div>
         </div>
 
+        {/* Announcement Banner Management */}
+        <div className="pt-4 border-t border-slate-100 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-amber-500" />
+              <span>شريط الإعلانات العلوي بالموقع (Top Announcement Bar)</span>
+            </h2>
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked={true}
+                className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+              />
+              <span>تفعيل الشريط أعلى الهيدر</span>
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              نص الإعلان والعرض (Text)
+            </label>
+            <input
+              type="text"
+              defaultValue="خصم حصري 15% على صيانة أجهزة آيفون اليوم + فحص فوري وقطع غيار أصلية بضمان عام كامل"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                نص الشارة البارزة (Badge Text)
+              </label>
+              <input
+                type="text"
+                defaultValue="خدمة الطوارئ متوفرة الآن 24/7"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                رابط التوجيه عند النقر (Link)
+              </label>
+              <input
+                type="text"
+                defaultValue="/book"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              لون وشكل الشريط (Color Theme)
+            </label>
+            <select
+              defaultValue="amber"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="amber">برتقالي ذهبي متدرج (كما بالصورة - Amber Gold)</option>
+              <option value="emerald">أخضر زمردي فاخر (Emerald Green)</option>
+              <option value="blue">أزرق داكن تقني (Navy Blue)</option>
+              <option value="dark">أسود كربوني (Carbon Dark)</option>
+            </select>
+          </div>
+
+          {/* Live Preview */}
+          <div className="pt-2">
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+              معاينة حية للشريط كما سيظهر لزوار الموقع:
+            </label>
+            <div className="w-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 px-4 py-2.5 rounded-xl flex items-center justify-center gap-3 text-xs sm:text-sm font-bold shadow-sm">
+              <span className="flex items-center gap-1">⚡ خصم حصري 15% على صيانة أجهزة آيفون اليوم + فحص فوري وقطع غيار أصلية بضمان عام كامل</span>
+              <span className="hidden md:inline-block px-2.5 py-0.5 rounded-full bg-slate-950/80 text-amber-300 text-[11px] font-bold">
+                خدمة الطوارئ متوفرة الآن 24/7
+              </span>
+            </div>
+          </div>
+        </div>
+
         <div className="pt-4 border-t border-slate-100 flex justify-end">
           <button className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-sm hover:bg-emerald-700">
             <Save className="w-4 h-4" />

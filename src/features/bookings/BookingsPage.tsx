@@ -7,14 +7,39 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Filter,
+  X,
+  MapPin,
+  Calendar,
+  AlertCircle,
+  User,
+  Smartphone,
+  Save,
 } from 'lucide-react';
+
+interface Booking {
+  id: string;
+  date: string;
+  customer: string;
+  phone: string;
+  whatsapp: string;
+  device: string;
+  services: string[];
+  area: string;
+  transportFee: number;
+  total: number;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  slot: string;
+  address: string;
+  notes?: string;
+}
 
 export function BookingsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [activeNotes, setActiveNotes] = useState<string>('');
 
-  const bookings = [
+  const [bookings, setBookings] = useState<Booking[]>([
     {
       id: 'FM-2026-00104',
       date: '2026-10-02 14:15',
@@ -29,6 +54,7 @@ export function BookingsPage() {
       status: 'pending',
       slot: 'اليوم، 02:00 م - 04:00 م',
       address: 'شارع 9، عمارة 12، الدور 3',
+      notes: 'العميل يفضل الاتصال قبل التحرك بنصف ساعة.',
     },
     {
       id: 'FM-2026-00103',
@@ -54,7 +80,7 @@ export function BookingsPage() {
       device: 'iPhone 13',
       services: ['تغيير ظهر ليزر', 'تغيير بطارية'],
       area: '6 أكتوبر',
-      transportFee: 150,
+      transportFee: 0,
       total: 4800,
       status: 'completed',
       slot: 'أمس، 11:00 ص',
@@ -75,7 +101,24 @@ export function BookingsPage() {
       slot: 'أمس، 01:00 م',
       address: 'التجمع الخامس، شارع التسعين الشمالي',
     },
-  ];
+  ]);
+
+  const handleOpenDetails = (b: Booking) => {
+    setSelectedBooking(b);
+    setActiveNotes(b.notes || '');
+  };
+
+  const handleUpdateStatus = (newStatus: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
+    if (!selectedBooking) return;
+    setBookings((prev) =>
+      prev.map((item) =>
+        item.id === selectedBooking.id
+          ? { ...item, status: newStatus, notes: activeNotes }
+          : item
+      )
+    );
+    setSelectedBooking((prev) => (prev ? { ...prev, status: newStatus, notes: activeNotes } : null));
+  };
 
   const filtered = bookings.filter((b) => {
     const matchesStatus = filterStatus === 'all' || b.status === filterStatus;
@@ -94,7 +137,7 @@ export function BookingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">إدارة الحجوزات</h1>
           <p className="text-sm text-slate-500 mt-1">
-            متابعة الحجوزات الواردة، تعيين الفنيين، وتأكيد المواعيد
+            متابعة الحجوزات الواردة، تأكيد المواعيد، وإدارة الحالات
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -154,7 +197,7 @@ export function BookingsPage() {
                 <th className="py-3 px-4">المكان والموعد</th>
                 <th className="py-3 px-4">الإجمالي التقديري</th>
                 <th className="py-3 px-4">الحالة</th>
-                <th className="py-3 px-4 text-center">إجراءات سريعة</th>
+                <th className="py-3 px-4 text-center">إجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -170,7 +213,9 @@ export function BookingsPage() {
                     <div className="font-bold text-slate-900">{b.customer}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <a
-                        href={`https://wa.me/2${b.whatsapp}`}
+                        href={`https://wa.me/2${b.whatsapp}?text=${encodeURIComponent(
+                          `مرحباً ${b.customer}، بخصوص حجز صيانة ${b.device} برقم ${b.id} من FocusFix.`
+                        )}`}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
@@ -202,11 +247,6 @@ export function BookingsPage() {
                     <div className="font-bold text-slate-900">
                       {b.total.toLocaleString()} ج.م
                     </div>
-                    {b.transportFee > 0 && (
-                      <div className="text-[11px] text-amber-600 font-medium">
-                        يشمل {b.transportFee} ج.م انتقال
-                      </div>
-                    )}
                   </td>
                   <td className="py-4 px-4">
                     {b.status === 'pending' && (
@@ -235,11 +275,12 @@ export function BookingsPage() {
                     )}
                   </td>
                   <td className="py-4 px-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
-                        إجراء
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleOpenDetails(b)}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+                    >
+                      تفاصيل وإجراء
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -247,6 +288,176 @@ export function BookingsPage() {
           </table>
         </div>
       </div>
+
+      {/* Booking Details Modal / Drawer */}
+      {selectedBooking && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+              <div>
+                <span className="text-xs font-mono font-bold text-emerald-600 block">
+                  {selectedBooking.id}
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 mt-0.5">تفاصيل الحجز والإجراءات</h3>
+              </div>
+              <button
+                onClick={() => setSelectedBooking(null)}
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6">
+              {/* Customer and Contact */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-slate-500" />
+                    <span className="font-bold text-slate-900">{selectedBooking.customer}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 font-mono mt-1 mr-6">
+                    {selectedBooking.phone}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`https://wa.me/2${selectedBooking.whatsapp}?text=${encodeURIComponent(
+                      `مرحباً ${selectedBooking.customer}، بخصوص حجز صيانة ${selectedBooking.device} برقم ${selectedBooking.id} من FocusFix.`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+                    title="محادثة واتساب"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                  </a>
+                  <a
+                    href={`tel:${selectedBooking.phone}`}
+                    className="p-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 transition-colors"
+                    title="اتصال هاتفي"
+                  >
+                    <Phone className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Device and Services */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>الجهاز والخدمات المطلوبة</span>
+                </h4>
+                <div className="p-4 border border-slate-200 rounded-xl space-y-2">
+                  <div className="font-bold text-slate-900">{selectedBooking.device}</div>
+                  <div className="text-sm text-slate-600">
+                    {selectedBooking.services.map((s, idx) => (
+                      <span key={idx} className="inline-block bg-slate-100 px-2.5 py-1 rounded-md text-xs font-medium ml-1.5 mb-1.5">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-sm">
+                    <span className="text-slate-500">الإجمالي التقديري:</span>
+                    <span className="font-extrabold text-emerald-600 text-base">
+                      {selectedBooking.total.toLocaleString()} ج.م
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location and Appointment */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>الموقع والموعد</span>
+                </h4>
+                <div className="p-4 border border-slate-200 rounded-xl text-sm space-y-1.5">
+                  <div className="font-semibold text-slate-800">{selectedBooking.area}</div>
+                  <div className="text-xs text-slate-600">{selectedBooking.address}</div>
+                  <div className="text-xs text-emerald-700 font-medium flex items-center gap-1 mt-2">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>{selectedBooking.slot}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Internal Notes */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 block">
+                  ملاحظات تشغيلية داخلية (Internal Notes)
+                </label>
+                <textarea
+                  value={activeNotes}
+                  onChange={(e) => setActiveNotes(e.target.value)}
+                  placeholder="أضف أي ملاحظات للفني أو سبب التعديل..."
+                  rows={2}
+                  className="w-full p-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Status Action Buttons */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <span className="text-xs font-bold text-slate-700 block">تحديث حالة الحجز:</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    onClick={() => handleUpdateStatus('confirmed')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
+                      selectedBooking.status === 'confirmed'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'border-slate-200 text-slate-700 hover:bg-blue-50'
+                    }`}
+                  >
+                    تأكيد الحجز
+                  </button>
+                  <button
+                    onClick={() => handleUpdateStatus('completed')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
+                      selectedBooking.status === 'completed'
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'border-slate-200 text-slate-700 hover:bg-emerald-50'
+                    }`}
+                  >
+                    تم الإصلاح
+                  </button>
+                  <button
+                    onClick={() => handleUpdateStatus('cancelled')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
+                      selectedBooking.status === 'cancelled'
+                        ? 'bg-rose-600 text-white border-rose-600'
+                        : 'border-slate-200 text-slate-700 hover:bg-rose-50'
+                    }`}
+                  >
+                    إلغاء الطلب
+                  </button>
+                  <button
+                    onClick={() => handleUpdateStatus('pending')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
+                      selectedBooking.status === 'pending'
+                        ? 'bg-amber-600 text-white border-amber-600'
+                        : 'border-slate-200 text-slate-700 hover:bg-amber-50'
+                    }`}
+                  >
+                    انتظار
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+              <button
+                onClick={() => setSelectedBooking(null)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800"
+              >
+                حفظ وإغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

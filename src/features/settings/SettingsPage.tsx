@@ -146,21 +146,33 @@ export function SettingsPage() {
             </label>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              نص الإعلان والعرض (Text)
-            </label>
-            <input
-              type="text"
-              defaultValue="خصم حصري 15% على صيانة أجهزة آيفون اليوم + فحص فوري وقطع غيار أصلية بضمان عام كامل"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-            />
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                نص الشارة البارزة (Badge Text)
+                نص الإعلان (بالعربية - Arabic)
+              </label>
+              <input
+                type="text"
+                defaultValue="خصم حصري 15% على صيانة أجهزة آيفون اليوم + فحص فوري وقطع غيار أصلية بضمان عام كامل"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                نص الإعلان (بالإنجليزية - English)
+              </label>
+              <input
+                type="text"
+                defaultValue="Exclusive 15% OFF iPhone repairs today + instant inspection & genuine parts with 1-Year warranty"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                نص الشارة (بالعربية)
               </label>
               <input
                 type="text"
@@ -170,7 +182,17 @@ export function SettingsPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                رابط التوجيه عند النقر (Link)
+                نص الشارة (بالإنجليزية)
+              </label>
+              <input
+                type="text"
+                defaultValue="Emergency 24/7 Service Available"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                رابط التوجيه (Link URL)
               </label>
               <input
                 type="text"

@@ -48,28 +48,97 @@ export function Sidebar({ badges = { bookings: 3, messages: 2 } }: SidebarProps)
       <nav className="flex-1 overflow-y-auto p-4 space-y-1.5">
         {links.map((link) => {
           const Icon = link.icon;
+          const isBlog = link.to === '/blog';
           return (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              className={({ isActive }) =>
-                `flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                }`
-              }
-            >
-              <div className="flex items-center gap-3">
-                <Icon className="w-4 h-4" />
-                <span>{link.label}</span>
-              </div>
-              {link.badge && link.badge > 0 ? (
-                <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-500 text-slate-950">
-                  {link.badge}
-                </span>
-              ) : null}
-            </NavLink>
+            <div key={link.to} className="space-y-1">
+              <NavLink
+                to={link.to}
+                className={({ isActive }) =>
+                  `flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  }`
+                }
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className="w-4 h-4" />
+                  <span>{link.label}</span>
+                </div>
+                {link.badge && link.badge > 0 ? (
+                  <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-500 text-slate-950">
+                    {link.badge}
+                  </span>
+                ) : null}
+              </NavLink>
+
+              {/* Blog Sub-menu */}
+              {isBlog && (
+                <div className="pr-7 pl-2 py-1 space-y-1 text-xs">
+                  <NavLink
+                    to="/blog"
+                    end
+                    className={({ isActive }) =>
+                      `block px-2.5 py-1.5 rounded-md transition-colors ${
+                        isActive
+                          ? 'text-emerald-400 font-bold bg-slate-800/60'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`
+                    }
+                  >
+                    • قائمة المقالات
+                  </NavLink>
+                  <NavLink
+                    to="/blog/new"
+                    className={({ isActive }) =>
+                      `block px-2.5 py-1.5 rounded-md transition-colors ${
+                        isActive
+                          ? 'text-emerald-400 font-bold bg-slate-800/60'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`
+                    }
+                  >
+                    • إضافة مقال جديد
+                  </NavLink>
+                  <NavLink
+                    to="/blog/categories"
+                    className={({ isActive }) =>
+                      `block px-2.5 py-1.5 rounded-md transition-colors ${
+                        isActive
+                          ? 'text-emerald-400 font-bold bg-slate-800/60'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`
+                    }
+                  >
+                    • التصنيفات (Categories)
+                  </NavLink>
+                  <NavLink
+                    to="/blog/tags"
+                    className={({ isActive }) =>
+                      `block px-2.5 py-1.5 rounded-md transition-colors ${
+                        isActive
+                          ? 'text-emerald-400 font-bold bg-slate-800/60'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`
+                    }
+                  >
+                    • الوسوم (Tags)
+                  </NavLink>
+                  <NavLink
+                    to="/blog/authors"
+                    className={({ isActive }) =>
+                      `block px-2.5 py-1.5 rounded-md transition-colors ${
+                        isActive
+                          ? 'text-emerald-400 font-bold bg-slate-800/60'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`
+                    }
+                  >
+                    • الكتاب (Authors)
+                  </NavLink>
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>

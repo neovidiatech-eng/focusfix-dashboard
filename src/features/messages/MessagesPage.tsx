@@ -1,4 +1,4 @@
-import { Mail, Phone, MessageCircle } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 
 export function MessagesPage() {
   const messages = [

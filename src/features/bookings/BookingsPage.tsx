@@ -10,10 +10,8 @@ import {
   X,
   MapPin,
   Calendar,
-  AlertCircle,
   User,
   Smartphone,
-  Save,
 } from 'lucide-react';
 
 interface Booking {

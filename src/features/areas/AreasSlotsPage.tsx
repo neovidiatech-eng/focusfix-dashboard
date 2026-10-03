@@ -1,4 +1,4 @@
-import { Plus, MapPin, Clock, Calendar } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 export function AreasSlotsPage() {
   const areas = [

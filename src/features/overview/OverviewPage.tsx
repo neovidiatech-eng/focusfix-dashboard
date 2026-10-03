@@ -4,7 +4,6 @@ import {
   DollarSign,
   AlertCircle,
   Clock,
-  CheckCircle2,
   ArrowUpRight,
 } from 'lucide-react';
 

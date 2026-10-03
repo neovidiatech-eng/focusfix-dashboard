@@ -1,16 +1,12 @@
 import { useState } from 'react';
 import {
   Save,
-  RotateCcw,
   FileSpreadsheet,
   Upload,
   Search,
   Plus,
   Trash2,
-  Edit,
   X,
-  Check,
-  AlertTriangle,
 } from 'lucide-react';
 
 interface MatrixRow {
@@ -23,9 +19,8 @@ interface MatrixRow {
 export function PricingMatrixPage() {
   const [search, setSearch] = useState<string>('');
   const [isAddPriceModalOpen, setIsAddPriceModalOpen] = useState(false);
-  const [editingCell, setEditingCell] = useState<{ modelId: string; serviceId: string } | null>(null);
 
-  const [services, setServices] = useState([
+  const [services] = useState([
     { id: 'screen', nameAr: 'تغيير شاشة أصلية', nameEn: 'Screen Replacement' },
     { id: 'battery', nameAr: 'تغيير بطارية أبل', nameEn: 'Battery Replacement' },
     { id: 'back', nameAr: 'تغيير ظهر ليزر', nameEn: 'Back Glass' },

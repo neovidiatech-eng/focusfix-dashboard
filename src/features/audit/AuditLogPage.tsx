@@ -1,4 +1,3 @@
-import { ShieldCheck } from 'lucide-react';
 
 export function AuditLogPage() {
   const logs = [

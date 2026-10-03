@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Smartphone, Wrench, Layers, Edit, Trash2, X, Save, Check } from 'lucide-react';
+import { Plus, Smartphone, Wrench, Edit, Trash2, X, Save } from 'lucide-react';
 
 interface DeviceModel {
   id: string;

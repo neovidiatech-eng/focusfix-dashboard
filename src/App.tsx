@@ -12,7 +12,6 @@ import { ArticleEditorPage } from './features/blog/pages/ArticleEditorPage';
 import { CategoriesManagerPage } from './features/blog/pages/CategoriesManagerPage';
 import { TagsManagerPage } from './features/blog/pages/TagsManagerPage';
 import { AuthorsManagerPage } from './features/blog/pages/AuthorsManagerPage';
-import { MessagesPage } from './features/messages/MessagesPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { AuditLogPage } from './features/audit/AuditLogPage';
 
@@ -51,7 +50,6 @@ export default function App() {
             <Route path="blog/categories" element={<CategoriesManagerPage />} />
             <Route path="blog/tags" element={<TagsManagerPage />} />
             <Route path="blog/authors" element={<AuthorsManagerPage />} />
-            <Route path="messages" element={<MessagesPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="audit" element={<AuditLogPage />} />
           </Route>

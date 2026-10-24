@@ -6,7 +6,6 @@ import {
   Smartphone,
   MapPin,
   Newspaper,
-  Inbox,
   Settings,
   ShieldCheck,
 } from 'lucide-react';
@@ -14,11 +13,10 @@ import {
 interface SidebarProps {
   badges?: {
     bookings: number;
-    messages: number;
   };
 }
 
-export function Sidebar({ badges = { bookings: 3, messages: 2 } }: SidebarProps) {
+export function Sidebar({ badges = { bookings: 3 } }: SidebarProps) {
   const links = [
     { to: '/overview', label: 'نظرة عامة (KPIs)', icon: LayoutDashboard },
     { to: '/bookings', label: 'الحجوزات', icon: CalendarCheck, badge: badges.bookings },
@@ -26,7 +24,6 @@ export function Sidebar({ badges = { bookings: 3, messages: 2 } }: SidebarProps)
     { to: '/catalog', label: 'الكتالوج والأجهزة', icon: Smartphone },
     { to: '/areas', label: 'المناطق والمواعيد', icon: MapPin },
     { to: '/blog', label: 'المدونة (CMS)', icon: Newspaper },
-    { to: '/messages', label: 'الرسائل والطلبات', icon: Inbox, badge: badges.messages },
     { to: '/settings', label: 'المحتوى والإعدادات', icon: Settings },
     { to: '/audit', label: 'سجل التدقيق (Audit)', icon: ShieldCheck },
   ];

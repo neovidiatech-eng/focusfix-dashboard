@@ -112,6 +112,15 @@ export const api = {
     return res.json();
   },
 
+  async deleteArea(id: string) {
+    const res = await authFetch(`${API_BASE_URL}/areas/admin/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to delete area');
+    return res.json();
+  },
+
   // Catalog — public reads
   async getDeviceTypes() {
     const res = await fetch(`${API_BASE_URL}/catalog/device-types`);

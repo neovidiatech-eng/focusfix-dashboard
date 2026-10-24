@@ -1,24 +1,27 @@
 import { useState, useEffect } from 'react';
-import { Plus, RefreshCw, Edit, X } from 'lucide-react';
+import { Plus, RefreshCw, Edit, Trash2, X, Search, CheckCircle2 } from 'lucide-react';
 import { api } from '../../lib/api';
 
 export function AreasSlotsPage() {
   const [areas, setAreas] = useState<any[]>([]);
+  const [search, setSearch] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingArea, setEditingArea] = useState<any | null>(null);
+  const [successMsg, setSuccessMsg] = useState('');
 
   // Form states
   const [nameAr, setNameAr] = useState('');
   const [nameEn, setNameEn] = useState('');
   const [cityAr, setCityAr] = useState('القاهرة');
   const [fee, setFee] = useState<number>(0);
+  const [isActive, setIsActive] = useState<boolean>(true);
 
   const fetchAreas = async () => {
     setIsLoading(true);
     try {
       const data = await api.getAreas();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         setAreas(data);
       }
     } catch (e) {
@@ -38,6 +41,7 @@ export function AreasSlotsPage() {
     setNameEn('');
     setCityAr('القاهرة');
     setFee(0);
+    setIsActive(true);
     setIsModalOpen(true);
   };
 
@@ -47,7 +51,36 @@ export function AreasSlotsPage() {
     setNameEn(area.name_en || '');
     setCityAr(area.city_ar || 'القاهرة');
     setFee(Number(area.transport_fee || 0));
+    setIsActive(area.is_active !== false);
     setIsModalOpen(true);
+  };
+
+  const handleDeleteArea = async (id: string, name: string) => {
+    if (!confirm(`هل أنت متأكد من حذف منطقة "${name}" نهائياً من قاعدة البيانات وموقع الحجز؟`)) {
+      return;
+    }
+    try {
+      await api.deleteArea(id);
+      setSuccessMsg(`تم حذف منطقة "${name}" بنجاح!`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+      fetchAreas();
+    } catch (err: any) {
+      alert(err.message || 'تعذر حذف المنطقة');
+    }
+  };
+
+  const handleToggleStatus = async (area: any) => {
+    try {
+      const updatedStatus = area.is_active === false;
+      await api.updateArea(area.id, {
+        is_active: updatedStatus,
+      });
+      setSuccessMsg(`تم ${updatedStatus ? 'تفعيل' : 'تعطيل'} المنطقة بنجاح!`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+      fetchAreas();
+    } catch (err: any) {
+      alert(err.message || 'تعذر تحديث حالة المنطقة');
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -57,8 +90,11 @@ export function AreasSlotsPage() {
         await api.updateArea(editingArea.id, {
           name_ar: nameAr,
           name_en: nameEn || nameAr,
+          city_ar: cityAr,
           transport_fee: fee,
+          is_active: isActive,
         });
+        setSuccessMsg('تم تحديث بيانات المنطقة بنجاح!');
       } else {
         const slug = nameEn
           ? nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-')
@@ -70,7 +106,9 @@ export function AreasSlotsPage() {
           city_ar: cityAr,
           transport_fee: fee,
         });
+        setSuccessMsg('تم إنشاء المنطقة الجديدة بنجاح!');
       }
+      setTimeout(() => setSuccessMsg(''), 4000);
       setIsModalOpen(false);
       fetchAreas();
     } catch (err: any) {
@@ -78,13 +116,20 @@ export function AreasSlotsPage() {
     }
   };
 
+  const filteredAreas = areas.filter(
+    (a) =>
+      (a.name_ar && a.name_ar.toLowerCase().includes(search.toLowerCase())) ||
+      (a.name_en && a.name_en.toLowerCase().includes(search.toLowerCase())) ||
+      (a.city_ar && a.city_ar.toLowerCase().includes(search.toLowerCase()))
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">المناطق والمواعيد (Areas & Slots)</h1>
           <p className="text-sm text-slate-500 mt-1">
-            إدارة مناطق التغطية، رسوم الانتقال، وسعة الفترات اليومية
+            إدارة مناطق التغطية، رسوم الانتقال، وسعة الفترات اليومية للحجز المباشر
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -106,51 +151,108 @@ export function AreasSlotsPage() {
         </div>
       </div>
 
+      {successMsg && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          {successMsg}
+        </div>
+      )}
+
+      {/* Search Input */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="بحث عن منطقة أو محافظة..."
+            className="w-full pl-4 pr-10 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+        <div className="text-xs text-slate-500 font-medium">
+          💡 المناطق المضافة هنا تظهر مباشرة لعملاء الموقع العام في قائمة الحجز وصفحة الأسعار.
+        </div>
+      </div>
+
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <table className="w-full text-right text-sm">
-          <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
-            <tr>
-              <th className="py-3 px-4">المنطقة</th>
-              <th className="py-3 px-4">المحافظة / المدينة</th>
-              <th className="py-3 px-4">رسم الانتقال الإضافي</th>
-              <th className="py-3 px-4">الحالة</th>
-              <th className="py-3 px-4">سعة الفترات اليومية</th>
-              <th className="py-3 px-4 text-center">إجراءات</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {areas.map((a) => (
-              <tr key={a.id} className="hover:bg-slate-50">
-                <td className="py-3.5 px-4 font-bold text-slate-900">{a.name_ar}</td>
-                <td className="py-3.5 px-4 text-slate-600">{a.city_ar || 'القاهرة'}</td>
-                <td className="py-3.5 px-4 font-semibold text-slate-900">
-                  {Number(a.transport_fee || 0) === 0 ? (
-                    <span className="text-emerald-600 font-bold">مجاناً</span>
-                  ) : (
-                    <span className="text-amber-600 font-bold">+{Number(a.transport_fee)} ج.م</span>
-                  )}
-                </td>
-                <td className="py-3.5 px-4">
-                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                    a.is_active !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'
-                  }`}>
-                    {a.is_active !== false ? 'مفعل' : 'معطل'}
-                  </span>
-                </td>
-                <td className="py-3.5 px-4 text-slate-600">3 فترات (حد أقصى 3 حجوزات/فترة)</td>
-                <td className="py-3.5 px-4 text-center">
-                  <button
-                    onClick={() => handleOpenEdit(a)}
-                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 border border-slate-200 rounded-md hover:bg-slate-100 flex items-center gap-1 mx-auto"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                    <span>تعديل</span>
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {isLoading && areas.length === 0 ? (
+          <div className="py-16 text-center text-slate-400">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-500" />
+            جاري تحميل المناطق من السيرفر...
+          </div>
+        ) : filteredAreas.length === 0 ? (
+          <div className="py-16 text-center text-slate-500 space-y-2">
+            <p className="font-bold text-slate-700">لا توجد مناطق مطابقة للبحث</p>
+            <p className="text-xs text-slate-400">جرّب كلمة بحث أخرى أو أضف منطقة جديدة.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-sm">
+              <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
+                <tr>
+                  <th className="py-3 px-4">المنطقة</th>
+                  <th className="py-3 px-4">المحافظة / المدينة</th>
+                  <th className="py-3 px-4">رسم الانتقال الإضافي</th>
+                  <th className="py-3 px-4">الحالة</th>
+                  <th className="py-3 px-4">سعة الفترات اليومية</th>
+                  <th className="py-3 px-4 text-center">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredAreas.map((a) => (
+                  <tr key={a.id} className="hover:bg-slate-50">
+                    <td className="py-3.5 px-4 font-bold text-slate-900">
+                      <div>{a.name_ar}</div>
+                      {a.name_en && <div className="text-[11px] text-slate-400 font-normal">{a.name_en}</div>}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600">{a.city_ar || 'القاهرة'}</td>
+                    <td className="py-3.5 px-4 font-semibold text-slate-900">
+                      {Number(a.transport_fee || 0) === 0 ? (
+                        <span className="text-emerald-600 font-bold">مجاناً (0 ج.م)</span>
+                      ) : (
+                        <span className="text-amber-600 font-bold">+{Number(a.transport_fee)} ج.م</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <button
+                        onClick={() => handleToggleStatus(a)}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-full cursor-pointer transition-colors ${
+                          a.is_active !== false
+                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                        title="انقر لتبديل حالة المنطقة"
+                      >
+                        {a.is_active !== false ? 'مفعل (نشط)' : 'معطل (مخفي)'}
+                      </button>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600">3 فترات (حد أقصى 3 حجوزات/فترة)</td>
+                    <td className="py-3.5 px-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleOpenEdit(a)}
+                          className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 border border-slate-200 rounded-md hover:bg-slate-100 flex items-center gap-1"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>تعديل</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteArea(a.id, a.name_ar)}
+                          className="text-xs font-semibold text-rose-500 hover:text-rose-700 px-2.5 py-1 border border-rose-100 rounded-md hover:bg-rose-50 flex items-center gap-1"
+                          title="حذف المنطقة"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>حذف</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Modal Add / Edit */}

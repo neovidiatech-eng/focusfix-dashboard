@@ -58,30 +58,45 @@ export function PricingMatrixPage() {
     setIsLoading(true);
     try {
       const data = await api.getPricingMatrix('iphone');
-      if (data && data.columns && data.series) {
-        // Map columns
-        const cols: ServiceColumn[] = data.columns.map((c: any) => ({
-          id: c.id,
-          slug: c.slug,
-          nameAr: c.name_ar,
-          nameEn: c.name_en,
-        }));
-        setServices(cols);
+      if (data) {
+        // 1. Map columns / services
+        let cols: ServiceColumn[] = [];
+        if (Array.isArray(data.services) && data.services.length > 0) {
+          cols = data.services.map((s: any) => ({
+            id: s.id,
+            slug: s.slug,
+            nameAr: s.name_ar,
+            nameEn: s.name_en || s.name_ar,
+          }));
+        } else if (Array.isArray(data.columns) && data.columns.length > 0) {
+          cols = data.columns.map((c: any) => ({
+            id: c.id,
+            slug: c.slug,
+            nameAr: c.name_ar,
+            nameEn: c.name_en || c.name_ar,
+          }));
+        }
 
-        // Map rows
+        if (cols.length > 0) {
+          setServices(cols);
+        }
+
+        // 2. Map rows / models
         const flatRows: MatrixRow[] = [];
-        data.series.forEach((sGroup: any) => {
-          sGroup.models.forEach((m: any) => {
+
+        // Check if data.models (admin format)
+        if (Array.isArray(data.models) && data.models.length > 0) {
+          data.models.forEach((m: any) => {
             const pricesMap: MatrixRow['prices'] = {};
-            cols.forEach((col) => {
-              const cell = m.cells?.[col.slug];
-              if (cell && (cell.price !== null && cell.price !== undefined)) {
-                pricesMap[col.slug] = {
-                  serviceId: col.id,
-                  price: cell.price,
-                  warranty: `${cell.warrantyDays || 180} يوم`,
-                  warrantyDays: cell.warrantyDays || 180,
-                  status: cell.status || 'available',
+            (m.prices || []).forEach((p: any) => {
+              const matchedCol = cols.find((c) => c.id === p.service_id);
+              if (matchedCol) {
+                pricesMap[matchedCol.slug] = {
+                  serviceId: p.service_id,
+                  price: Number(p.price || 0),
+                  warranty: `${p.warranty_days || 180} يوم`,
+                  warrantyDays: p.warranty_days || 180,
+                  status: p.status || 'available',
                 };
               }
             });
@@ -89,11 +104,38 @@ export function PricingMatrixPage() {
             flatRows.push({
               modelId: m.id,
               modelName: m.name,
-              series: sGroup.title || 'سلسلة آيفون',
+              series: m.series_ar || m.series_en || 'سلسلة آيفون',
               prices: pricesMap,
             });
           });
-        });
+        }
+        // Check if data.series (public format)
+        else if (Array.isArray(data.series) && data.series.length > 0) {
+          data.series.forEach((sGroup: any) => {
+            (sGroup.models || []).forEach((m: any) => {
+              const pricesMap: MatrixRow['prices'] = {};
+              cols.forEach((col) => {
+                const cell = m.cells?.[col.slug];
+                if (cell && cell.price !== null && cell.price !== undefined) {
+                  pricesMap[col.slug] = {
+                    serviceId: col.id,
+                    price: Number(cell.price),
+                    warranty: `${cell.warrantyDays || 180} يوم`,
+                    warrantyDays: cell.warrantyDays || 180,
+                    status: cell.status || 'available',
+                  };
+                }
+              });
+
+              flatRows.push({
+                modelId: m.id,
+                modelName: m.name,
+                series: sGroup.title || 'سلسلة آيفون',
+                prices: pricesMap,
+              });
+            });
+          });
+        }
 
         if (flatRows.length > 0) {
           setRows(flatRows);

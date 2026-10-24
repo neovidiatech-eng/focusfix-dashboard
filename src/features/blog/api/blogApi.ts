@@ -2,6 +2,14 @@ import { BlogPost, BlogCategory, BlogTag, BlogAuthor, InternalLinkItem } from '.
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1') + '/blog';
 
+function getAdminAuthHeaders(extraHeaders: Record<string, string> = {}): HeadersInit {
+  const token = localStorage.getItem('focusfix_admin_token');
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extraHeaders,
+  };
+}
+
 // In-memory demo data with realistic data for FocusFix
 const initialCategories: BlogCategory[] = [
   {
@@ -345,9 +353,56 @@ export const blogApi = {
   }): Promise<{ posts: BlogPost[]; counts: Record<string, number> }> {
     try {
       const query = new URLSearchParams(params as Record<string, string>).toString();
-      const res = await fetch(`${API_BASE_URL}/admin/all?${query}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE_URL}/admin/all?${query}`, {
+        headers: getAdminAuthHeaders(),
+      });
       if (res.ok) {
-        return await res.json();
+        const data = await res.json();
+        if (data && Array.isArray(data.posts) && data.posts.length > 0) {
+          // Map backend snake_case to frontend BlogPost camelCase
+          const mappedPosts: BlogPost[] = data.posts.map((p: any) => ({
+            id: p.id,
+            slug: p.slug,
+            titleAr: p.title_ar,
+            titleEn: p.title_en,
+            excerptAr: p.excerpt_ar,
+            excerptEn: p.excerpt_en,
+            contentHtml: p.content_html,
+            contentHtmlEn: p.content_html_en,
+            categoryId: p.category_id,
+            category: p.category ? { id: p.category.id, nameAr: p.category.name_ar, nameEn: p.category.name_en, slug: p.category.slug } : undefined,
+            authorId: p.author_id,
+            author: p.author ? { id: p.author.id, nameAr: p.author.name_ar, nameEn: p.author.name_en, slug: p.author.slug || p.author.id, avatarUrl: p.author.avatar_url } : undefined,
+            tags: Array.isArray(p.tags) ? p.tags.map((t: any) => ({ id: t.id, nameAr: t.name_ar, nameEn: t.name_en, slug: t.slug })) : [],
+            featuredImage: p.featured_image,
+            featuredImageAlt: p.featured_image_alt,
+            featuredImageCaption: p.featured_image_caption,
+            focusKeyword: p.focus_keyword,
+            seoTitle: p.meta_title_ar,
+            seoDesc: p.meta_desc_ar,
+            canonicalUrl: p.canonical_url,
+            robotsIndex: p.robots_index,
+            robotsFollow: p.robots_follow,
+            status: p.status,
+            readingMinutes: p.reading_minutes || 4,
+            viewsCount: p.views_count || 0,
+            publishedAt: p.published_at,
+            scheduledAt: p.scheduled_at,
+            createdAt: p.created_at,
+            updatedAt: p.updated_at,
+            seoScore: 85,
+          }));
+          return {
+            posts: mappedPosts,
+            counts: data.counts || {
+              all: mappedPosts.filter((x) => x.status !== 'archived').length,
+              published: mappedPosts.filter((x) => x.status === 'published').length,
+              draft: mappedPosts.filter((x) => x.status === 'draft').length,
+              scheduled: mappedPosts.filter((x) => x.status === 'scheduled').length,
+              trash: mappedPosts.filter((x) => x.status === 'archived').length,
+            },
+          };
+        }
       }
     } catch {
       // Fallback to local store
@@ -389,8 +444,43 @@ export const blogApi = {
 
   async getPostById(id: string): Promise<BlogPost | null> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}`, { credentials: 'include' });
-      if (res.ok) return await res.json();
+      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}`, {
+        headers: getAdminAuthHeaders(),
+      });
+      if (res.ok) {
+        const p = await res.json();
+        return {
+          id: p.id,
+          slug: p.slug,
+          titleAr: p.title_ar,
+          titleEn: p.title_en,
+          excerptAr: p.excerpt_ar,
+          excerptEn: p.excerpt_en,
+          contentHtml: p.content_html,
+          contentHtmlEn: p.content_html_en,
+          categoryId: p.category_id,
+          category: p.category ? { id: p.category.id, nameAr: p.category.name_ar, nameEn: p.category.name_en, slug: p.category.slug } : undefined,
+          authorId: p.author_id,
+          author: p.author ? { id: p.author.id, nameAr: p.author.name_ar, nameEn: p.author.name_en, slug: p.author.slug || p.author.id, avatarUrl: p.author.avatar_url } : undefined,
+          tags: Array.isArray(p.tags) ? p.tags.map((t: any) => ({ id: t.id, nameAr: t.name_ar, nameEn: t.name_en, slug: t.slug })) : [],
+          featuredImage: p.featured_image,
+          featuredImageAlt: p.featured_image_alt,
+          featuredImageCaption: p.featured_image_caption,
+          focusKeyword: p.focus_keyword,
+          seoTitle: p.meta_title_ar,
+          seoDesc: p.meta_desc_ar,
+          canonicalUrl: p.canonical_url,
+          robotsIndex: p.robots_index,
+          robotsFollow: p.robots_follow,
+          status: p.status,
+          readingMinutes: p.reading_minutes || 4,
+          viewsCount: p.views_count || 0,
+          publishedAt: p.published_at,
+          scheduledAt: p.scheduled_at,
+          createdAt: p.created_at,
+          updatedAt: p.updated_at,
+        };
+      }
     } catch {
       // Fallback
     }
@@ -400,13 +490,52 @@ export const blogApi = {
 
   async createPost(postData: Partial<BlogPost>): Promise<BlogPost> {
     try {
+      const payload = {
+        title_ar: postData.titleAr,
+        title_en: postData.titleEn,
+        slug: postData.slug,
+        content_html: postData.contentHtml,
+        content_html_en: postData.contentHtmlEn,
+        excerpt_ar: postData.excerptAr,
+        excerpt_en: postData.excerptEn,
+        category_id: postData.categoryId,
+        author_id: postData.authorId,
+        featured_image: postData.featuredImage,
+        featured_image_alt: postData.featuredImageAlt,
+        featured_image_caption: postData.featuredImageCaption,
+        focus_keyword: postData.focusKeyword,
+        meta_title_ar: postData.seoTitle,
+        meta_desc_ar: postData.seoDesc,
+        canonical_url: postData.canonicalUrl,
+        robots_index: postData.robotsIndex,
+        robots_follow: postData.robotsFollow,
+        status: postData.status,
+        scheduled_at: postData.scheduledAt,
+        tags: postData.tags?.map((t) => t.id),
+      };
+
       const res = await fetch(`${API_BASE_URL}/admin/posts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(postData),
+        headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const created = await res.json();
+        const postObj: BlogPost = {
+          ...postData,
+          id: created.id,
+          slug: created.slug,
+          titleAr: created.title_ar,
+          titleEn: created.title_en,
+          status: created.status,
+          createdAt: created.created_at,
+          updatedAt: created.updated_at,
+        } as BlogPost;
+        const local = getLocalPosts();
+        local.unshift(postObj);
+        saveLocalPosts(local);
+        return postObj;
+      }
     } catch {
       // Fallback
     }
@@ -539,7 +668,7 @@ export const blogApi = {
     try {
       await fetch(`${API_BASE_URL}/admin/posts/${id}/trash`, {
         method: 'PATCH',
-        credentials: 'include',
+        headers: getAdminAuthHeaders(),
       });
     } catch {
       // Fallback
@@ -556,7 +685,7 @@ export const blogApi = {
     try {
       await fetch(`${API_BASE_URL}/admin/posts/${id}/restore`, {
         method: 'PATCH',
-        credentials: 'include',
+        headers: getAdminAuthHeaders(),
       });
     } catch {
       // Fallback
@@ -573,7 +702,7 @@ export const blogApi = {
     try {
       await fetch(`${API_BASE_URL}/admin/posts/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
+        headers: getAdminAuthHeaders(),
       });
     } catch {
       // Fallback

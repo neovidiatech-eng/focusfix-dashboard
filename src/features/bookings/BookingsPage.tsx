@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search,
   Phone,
@@ -12,10 +12,13 @@ import {
   Calendar,
   User,
   Smartphone,
+  RefreshCw,
 } from 'lucide-react';
+import { api } from '../../lib/api';
 
 interface Booking {
   id: string;
+  backendId?: string;
   date: string;
   customer: string;
   phone: string;
@@ -36,86 +39,74 @@ export function BookingsPage() {
   const [search, setSearch] = useState<string>('');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [activeNotes, setActiveNotes] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
 
-  const [bookings, setBookings] = useState<Booking[]>([
-    {
-      id: 'FM-2026-00104',
-      date: '2026-10-02 14:15',
-      customer: 'أحمد محمود',
-      phone: '01009911934',
-      whatsapp: '01009911934',
-      device: 'iPhone 15 Pro Max',
-      services: ['تغيير شاشة أصلية'],
-      area: 'المعادي',
-      transportFee: 0,
-      total: 12500,
-      status: 'pending',
-      slot: 'اليوم، 02:00 م - 04:00 م',
-      address: 'شارع 9، عمارة 12، الدور 3',
-      notes: 'العميل يفضل الاتصال قبل التحرك بنصف ساعة.',
-    },
-    {
-      id: 'FM-2026-00103',
-      date: '2026-10-02 12:30',
-      customer: 'سارة خالد',
-      phone: '01123456789',
-      whatsapp: '01123456789',
-      device: 'iPhone 14 Pro',
-      services: ['تغيير بطارية أصلية'],
-      area: 'مدينة نصر',
-      transportFee: 0,
-      total: 3200,
-      status: 'confirmed',
-      slot: 'اليوم، 04:30 م - 06:30 م',
-      address: 'عباس العقاد، أمام الحديقة الدولية',
-    },
-    {
-      id: 'FM-2026-00102',
-      date: '2026-10-01 19:10',
-      customer: 'محمد إبراهيم',
-      phone: '01234567890',
-      whatsapp: '01234567890',
-      device: 'iPhone 13',
-      services: ['تغيير ظهر ليزر', 'تغيير بطارية'],
-      area: '6 أكتوبر',
-      transportFee: 0,
-      total: 4800,
-      status: 'completed',
-      slot: 'أمس، 11:00 ص',
-      address: 'الحي المتميز، فيلا 15',
-    },
-    {
-      id: 'FM-2026-00101',
-      date: '2026-10-01 15:00',
-      customer: 'هاني فؤاد',
-      phone: '01512345678',
-      whatsapp: '01512345678',
-      device: 'iPad Pro 11"',
-      services: ['فحص باور ومذربورد'],
-      area: 'التجمع الخامس',
-      transportFee: 0,
-      total: 1500,
-      status: 'cancelled',
-      slot: 'أمس، 01:00 م',
-      address: 'التجمع الخامس، شارع التسعين الشمالي',
-    },
-  ]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+
+  const fetchBookings = async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.getBookings();
+      if (res && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped: Booking[] = res.data.map((item: any) => ({
+          id: item.booking_number,
+          backendId: item.id,
+          date: item.created_at ? new Date(item.created_at).toLocaleString('ar-EG') : '',
+          customer: item.customer?.name || 'عميل',
+          phone: item.customer?.phone || '',
+          whatsapp: item.whatsapp_number || item.customer?.phone || '',
+          device: item.model?.name || 'جهاز غير محدد',
+          services: item.services?.map((s: any) => s.service?.name_ar || 'خدمة صيانة') || [],
+          area: item.area?.name_ar || 'المعادي',
+          transportFee: Number(item.transport_fee_snapshot || 0),
+          total: Number(item.estimated_total || item.total_final || 0),
+          status: item.status || 'pending',
+          slot: `${item.slot_date ? new Date(item.slot_date).toLocaleDateString('ar-EG') : ''} - ${item.slot_label_snapshot || ''}`,
+          address: item.address || '',
+          notes: item.notes || '',
+        }));
+        setBookings(mapped);
+      } else {
+        // Fallback demo if DB empty
+        setBookings([]);
+      }
+    } catch (e) {
+      console.error('Failed to fetch real bookings, keeping current', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
   const handleOpenDetails = (b: Booking) => {
     setSelectedBooking(b);
     setActiveNotes(b.notes || '');
   };
 
-  const handleUpdateStatus = (newStatus: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
+  const handleUpdateStatus = async (newStatus: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
     if (!selectedBooking) return;
-    setBookings((prev) =>
-      prev.map((item) =>
-        item.id === selectedBooking.id
-          ? { ...item, status: newStatus, notes: activeNotes }
-          : item
-      )
-    );
-    setSelectedBooking((prev) => (prev ? { ...prev, status: newStatus, notes: activeNotes } : null));
+    setIsUpdating(true);
+    try {
+      if (selectedBooking.backendId) {
+        await api.updateBookingStatus(selectedBooking.backendId, newStatus, activeNotes);
+      }
+      setBookings((prev) =>
+        prev.map((item) =>
+          item.id === selectedBooking.id
+            ? { ...item, status: newStatus, notes: activeNotes }
+            : item
+        )
+      );
+      setSelectedBooking((prev) => (prev ? { ...prev, status: newStatus, notes: activeNotes } : null));
+    } catch (err: any) {
+      alert(err.message || 'فشل تحديث حالة الحجز في السيرفر');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const filtered = bookings.filter((b) => {
@@ -139,6 +130,14 @@ export function BookingsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={fetchBookings}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 text-emerald-600 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>تحديث الحجوزات</span>
+          </button>
           <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-50">
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             <span>تصدير Excel</span>
@@ -401,42 +400,46 @@ export function BookingsPage() {
                 <span className="text-xs font-bold text-slate-700 block">تحديث حالة الحجز:</span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
+                    disabled={isUpdating}
                     onClick={() => handleUpdateStatus('confirmed')}
                     className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
                       selectedBooking.status === 'confirmed'
                         ? 'bg-blue-600 text-white border-blue-600'
                         : 'border-slate-200 text-slate-700 hover:bg-blue-50'
-                    }`}
+                    } disabled:opacity-50`}
                   >
                     تأكيد الحجز
                   </button>
                   <button
+                    disabled={isUpdating}
                     onClick={() => handleUpdateStatus('completed')}
                     className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
                       selectedBooking.status === 'completed'
                         ? 'bg-emerald-600 text-white border-emerald-600'
                         : 'border-slate-200 text-slate-700 hover:bg-emerald-50'
-                    }`}
+                    } disabled:opacity-50`}
                   >
                     تم الإصلاح
                   </button>
                   <button
+                    disabled={isUpdating}
                     onClick={() => handleUpdateStatus('cancelled')}
                     className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
                       selectedBooking.status === 'cancelled'
                         ? 'bg-rose-600 text-white border-rose-600'
                         : 'border-slate-200 text-slate-700 hover:bg-rose-50'
-                    }`}
+                    } disabled:opacity-50`}
                   >
                     إلغاء الطلب
                   </button>
                   <button
+                    disabled={isUpdating}
                     onClick={() => handleUpdateStatus('pending')}
                     className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
                       selectedBooking.status === 'pending'
                         ? 'bg-amber-600 text-white border-amber-600'
                         : 'border-slate-200 text-slate-700 hover:bg-amber-50'
-                    }`}
+                    } disabled:opacity-50`}
                   >
                     انتظار
                   </button>

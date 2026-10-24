@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   CalendarClock,
   TrendingUp,
@@ -5,77 +6,80 @@ import {
   AlertCircle,
   Clock,
   ArrowUpRight,
+  RefreshCw,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { api } from '../../lib/api';
 
 export function OverviewPage() {
+  const [statsData, setStatsData] = useState<any>(null);
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const fetchOverview = async () => {
+    setIsLoading(true);
+    try {
+      const [statsRes, bookingsRes] = await Promise.all([
+        api.getStats(),
+        api.getBookings({ limit: '5' }),
+      ]);
+      setStatsData(statsRes);
+      if (bookingsRes && Array.isArray(bookingsRes.data)) {
+        setRecentBookings(bookingsRes.data.map((b: any) => ({
+          id: b.booking_number,
+          customer: b.customer?.name || 'عميل',
+          phone: b.customer?.phone || '',
+          device: b.model?.name || 'جهاز آبل',
+          service: b.services?.[0]?.service?.name_ar || 'صيانة',
+          area: b.area?.name_ar || 'المعادي',
+          time: b.created_at ? new Date(b.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '',
+          total: `${Number(b.estimated_total || 0).toLocaleString()} ج.م`,
+          status: b.status,
+        })));
+      }
+    } catch (e) {
+      console.error('Failed to load overview data', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOverview();
+  }, []);
+
   const stats = [
     {
-      title: 'إجمالي الحجوزات (هذا الشهر)',
-      value: '142',
-      change: '+18%',
+      title: 'إجمالي الحجوزات',
+      value: statsData?.totalBookings !== undefined ? String(statsData.totalBookings) : '...',
+      change: 'محدث تلقائياً',
       isPositive: true,
       icon: CalendarClock,
       color: 'bg-blue-500',
     },
     {
       title: 'حجوزات بانتظار التأكيد',
-      value: '7',
-      change: 'يحتاج إجراء فوري',
-      isWarning: true,
+      value: statsData?.pendingBookings !== undefined ? String(statsData.pendingBookings) : '...',
+      change: statsData?.pendingBookings > 0 ? 'يحتاج إجراء فوري' : 'لا يوجد متأخرات',
+      isWarning: statsData?.pendingBookings > 0,
       icon: AlertCircle,
       color: 'bg-amber-500',
     },
     {
       title: 'الإيراد التقديري',
-      value: '194,500 ج.م',
+      value: statsData?.estimatedRevenue ? `${Number(statsData.estimatedRevenue).toLocaleString()} ج.م` : '0 ج.م',
       change: '+24%',
       isPositive: true,
       icon: DollarSign,
       color: 'bg-emerald-500',
     },
     {
-      title: 'معدل إتمام الإصلاح',
-      value: '96.4%',
-      change: '+1.2%',
+      title: 'حجوزات مؤكدة ومكتملة',
+      value: statsData ? String((statsData.confirmedBookings || 0) + (statsData.completedBookings || 0)) : '...',
+      change: 'معدل إتمام ممتاز',
       isPositive: true,
       icon: TrendingUp,
       color: 'bg-indigo-500',
-    },
-  ];
-
-  const recentBookings = [
-    {
-      id: 'FM-2026-00104',
-      customer: 'أحمد محمود',
-      phone: '01009911934',
-      device: 'iPhone 15 Pro Max',
-      service: 'تغيير شاشة',
-      area: 'المعادي',
-      time: 'اليوم، 02:00 م',
-      total: '12,500 ج.م',
-      status: 'pending',
-    },
-    {
-      id: 'FM-2026-00103',
-      customer: 'سارة خالد',
-      phone: '01123456789',
-      device: 'iPhone 14 Pro',
-      service: 'تغيير بطارية',
-      area: 'مدينة نصر',
-      time: 'اليوم، 04:30 م',
-      total: '3,200 ج.م',
-      status: 'confirmed',
-    },
-    {
-      id: 'FM-2026-00102',
-      customer: 'محمد إبراهيم',
-      phone: '01234567890',
-      device: 'iPhone 13',
-      service: 'تغيير ظهر ليزر',
-      area: '6 أكتوبر (+150 ج.م)',
-      time: 'غداً، 11:00 ص',
-      total: '2,650 ج.م',
-      status: 'confirmed',
     },
   ];
 
@@ -90,6 +94,14 @@ export function OverviewPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={fetchOverview}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
+            تحديث المؤشرات
+          </button>
           <select className="bg-white border border-slate-200 text-sm font-medium text-slate-700 rounded-lg px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
             <option>اليوم</option>
             <option>آخر 7 أيام</option>
@@ -142,10 +154,10 @@ export function OverviewPage() {
             <Clock className="w-5 h-5 text-amber-500" />
             <span>حجوزات تحتاج تأكيد فوري</span>
           </h2>
-          <a href="/bookings" className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+          <Link to="/bookings" className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
             <span>عرض كل الحجوزات</span>
             <ArrowUpRight className="w-4 h-4" />
-          </a>
+          </Link>
         </div>
 
         <div className="overflow-x-auto">

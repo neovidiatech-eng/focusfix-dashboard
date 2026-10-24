@@ -1,128 +1,179 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { api } from '../../lib/api';
 import {
   Save,
-  FileSpreadsheet,
-  Upload,
   Search,
   Plus,
   Trash2,
   X,
+  RefreshCw,
+  CheckCircle2,
 } from 'lucide-react';
+
+interface ServiceColumn {
+  id: string;
+  slug: string;
+  nameAr: string;
+  nameEn: string;
+}
 
 interface MatrixRow {
   modelId: string;
   modelName: string;
   series: string;
-  prices: Record<string, { price: number; warranty: string; status: 'available' | 'on_request' | 'unavailable' }>;
+  prices: Record<string, {
+    serviceId: string;
+    price: number;
+    warranty: string;
+    warrantyDays: number;
+    status: 'available' | 'on_request' | 'unavailable' | 'included';
+  }>;
 }
 
 export function PricingMatrixPage() {
   const [search, setSearch] = useState<string>('');
   const [isAddPriceModalOpen, setIsAddPriceModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
-  const [services] = useState([
-    { id: 'screen', nameAr: 'تغيير شاشة أصلية', nameEn: 'Screen Replacement' },
-    { id: 'battery', nameAr: 'تغيير بطارية أبل', nameEn: 'Battery Replacement' },
-    { id: 'back', nameAr: 'تغيير ظهر ليزر', nameEn: 'Back Glass' },
-    { id: 'camera', nameAr: 'صيانة كاميرا', nameEn: 'Camera Repair' },
-    { id: 'charging', nameAr: 'مدخل وفلكس شحن', nameEn: 'Charging Port' },
+  const [services, setServices] = useState<ServiceColumn[]>([
+    { id: 'screen', slug: 'screen', nameAr: 'تغيير شاشة أصلية', nameEn: 'Screen Replacement' },
+    { id: 'battery', slug: 'battery', nameAr: 'تغيير بطارية أبل', nameEn: 'Battery Replacement' },
+    { id: 'back', slug: 'back', nameAr: 'تغيير ظهر ليزر', nameEn: 'Back Glass' },
+    { id: 'camera', slug: 'camera', nameAr: 'صيانة كاميرا', nameEn: 'Camera Repair' },
+    { id: 'charging', slug: 'charging', nameAr: 'مدخل وفلكس شحن', nameEn: 'Charging Port' },
   ]);
 
-  const [rows, setRows] = useState<MatrixRow[]>([
-    {
-      modelId: 'ip-16-pm',
-      modelName: 'iPhone 16 Pro Max',
-      series: 'iPhone 16 Series',
-      prices: {
-        screen: { price: 14500, warranty: '360 يوم', status: 'available' },
-        battery: { price: 3800, warranty: '180 يوم', status: 'available' },
-        back: { price: 3200, warranty: '180 يوم', status: 'available' },
-        camera: { price: 4200, warranty: '90 يوم', status: 'available' },
-        charging: { price: 2100, warranty: '90 يوم', status: 'available' },
-      },
-    },
-    {
-      modelId: 'ip-16-p',
-      modelName: 'iPhone 16 Pro',
-      series: 'iPhone 16 Series',
-      prices: {
-        screen: { price: 13200, warranty: '360 يوم', status: 'available' },
-        battery: { price: 3600, warranty: '180 يوم', status: 'available' },
-        back: { price: 2900, warranty: '180 يوم', status: 'available' },
-        camera: { price: 3900, warranty: '90 يوم', status: 'available' },
-        charging: { price: 1950, warranty: '90 يوم', status: 'available' },
-      },
-    },
-    {
-      modelId: 'ip-15-pm',
-      modelName: 'iPhone 15 Pro Max',
-      series: 'iPhone 15 Series',
-      prices: {
-        screen: { price: 9500, warranty: '360 يوم', status: 'available' },
-        battery: { price: 2800, warranty: '180 يوم', status: 'available' },
-        back: { price: 2400, warranty: '180 يوم', status: 'available' },
-        camera: { price: 3100, warranty: '90 يوم', status: 'available' },
-        charging: { price: 1750, warranty: '90 يوم', status: 'available' },
-      },
-    },
-    {
-      modelId: 'ip-15-p',
-      modelName: 'iPhone 15 Pro',
-      series: 'iPhone 15 Series',
-      prices: {
-        screen: { price: 8800, warranty: '360 يوم', status: 'available' },
-        battery: { price: 2700, warranty: '180 يوم', status: 'available' },
-        back: { price: 2200, warranty: '180 يوم', status: 'available' },
-        camera: { price: 2900, warranty: '90 يوم', status: 'available' },
-        charging: { price: 1650, warranty: '90 يوم', status: 'available' },
-      },
-    },
-    {
-      modelId: 'ip-14-pm',
-      modelName: 'iPhone 14 Pro Max',
-      series: 'iPhone 14 Series',
-      prices: {
-        screen: { price: 7800, warranty: '360 يوم', status: 'available' },
-        battery: { price: 2400, warranty: '180 يوم', status: 'available' },
-        back: { price: 1950, warranty: '180 يوم', status: 'available' },
-        camera: { price: 2600, warranty: '90 يوم', status: 'available' },
-        charging: { price: 1450, warranty: '90 يوم', status: 'available' },
-      },
-    },
-  ]);
+  const [rows, setRows] = useState<MatrixRow[]>([]);
 
   // Modal Form States
-  const [formModelId, setFormModelId] = useState('ip-16-pm');
-  const [formServiceId, setFormServiceId] = useState('screen');
-  const [formPrice, setFormPrice] = useState(5000);
+  const [formModelId, setFormModelId] = useState('');
+  const [formServiceId, setFormServiceId] = useState('');
+  const [formPrice, setFormPrice] = useState(3500);
   const [formWarranty, setFormWarranty] = useState('360 يوم');
-  const [formStatus, setFormStatus] = useState<'available' | 'on_request' | 'unavailable'>('available');
+  const [formStatus, setFormStatus] = useState<'available' | 'on_request' | 'unavailable' | 'included'>('available');
 
-  const handleSavePriceModal = (e: React.FormEvent) => {
-    e.preventDefault();
-    setRows((prev) =>
-      prev.map((row) => {
-        if (row.modelId === formModelId) {
-          return {
-            ...row,
-            prices: {
-              ...row.prices,
-              [formServiceId]: {
-                price: Number(formPrice),
-                warranty: formWarranty,
-                status: formStatus,
-              },
-            },
-          };
+  const fetchMatrix = async () => {
+    setIsLoading(true);
+    try {
+      const data = await api.getPricingMatrix('iphone');
+      if (data && data.columns && data.series) {
+        // Map columns
+        const cols: ServiceColumn[] = data.columns.map((c: any) => ({
+          id: c.id,
+          slug: c.slug,
+          nameAr: c.name_ar,
+          nameEn: c.name_en,
+        }));
+        setServices(cols);
+
+        // Map rows
+        const flatRows: MatrixRow[] = [];
+        data.series.forEach((sGroup: any) => {
+          sGroup.models.forEach((m: any) => {
+            const pricesMap: MatrixRow['prices'] = {};
+            cols.forEach((col) => {
+              const cell = m.cells?.[col.slug];
+              if (cell && (cell.price !== null && cell.price !== undefined)) {
+                pricesMap[col.slug] = {
+                  serviceId: col.id,
+                  price: cell.price,
+                  warranty: `${cell.warrantyDays || 180} يوم`,
+                  warrantyDays: cell.warrantyDays || 180,
+                  status: cell.status || 'available',
+                };
+              }
+            });
+
+            flatRows.push({
+              modelId: m.id,
+              modelName: m.name,
+              series: sGroup.title || 'سلسلة آيفون',
+              prices: pricesMap,
+            });
+          });
+        });
+
+        if (flatRows.length > 0) {
+          setRows(flatRows);
         }
-        return row;
-      })
-    );
-    setIsAddPriceModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Failed to load pricing matrix:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMatrix();
+  }, []);
+
+  const handleSavePriceModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+
+    const targetService = services.find((s) => s.id === formServiceId || s.slug === formServiceId);
+    if (!targetService) {
+      setIsSaving(false);
+      return;
+    }
+
+    let warrantyDays = 180;
+    if (formWarranty.includes('360')) warrantyDays = 360;
+    else if (formWarranty.includes('90')) warrantyDays = 90;
+    else if (formWarranty.includes('30')) warrantyDays = 30;
+
+    try {
+      // If valid UUIDs, send update to backend
+      const isValidUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+      if (isValidUuid(formModelId) && isValidUuid(targetService.id)) {
+        await api.updatePricingMatrix([
+          {
+            modelId: formModelId,
+            serviceId: targetService.id,
+            price: Number(formPrice),
+            warrantyDays,
+            status: formStatus,
+          },
+        ]);
+        setSuccessMsg('تم تحديث وحفظ السعر في قاعدة البيانات بنجاح!');
+        setTimeout(() => setSuccessMsg(''), 4000);
+      }
+
+      // Optimistically update local state
+      setRows((prev) =>
+        prev.map((row) => {
+          if (row.modelId === formModelId) {
+            return {
+              ...row,
+              prices: {
+                ...row.prices,
+                [targetService.slug]: {
+                  serviceId: targetService.id,
+                  price: Number(formPrice),
+                  warranty: formWarranty,
+                  warrantyDays,
+                  status: formStatus,
+                },
+              },
+            };
+          }
+          return row;
+        })
+      );
+    } catch (err) {
+      console.error('Failed to save price:', err);
+      alert('حدث خطأ أثناء حفظ السعر على السيرفر');
+    } finally {
+      setIsSaving(false);
+      setIsAddPriceModalOpen(false);
+    }
   };
 
   const handleDeleteModelRow = (modelId: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا الموديل وأسعاره بالكامل من المصفوفة؟')) {
+    if (confirm('هل أنت متأكد من حذف هذا الموديل وأسعاره من العرض؟')) {
       setRows((prev) => prev.filter((r) => r.modelId !== modelId));
     }
   };
@@ -139,14 +190,14 @@ export function PricingMatrixPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">مصفوفة الأسعار (Pricing Matrix)</h1>
           <p className="text-sm text-slate-500 mt-1">
-            إدارة وتحديث أسعار الصيانة، مدد الضمان، والخصومات لجميع الموديلات
+            إدارة وتحديث أسعار الصيانة الحية، مدد الضمان، والخصومات لجميع الموديلات
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => {
-              setFormModelId(rows[0]?.modelId || '');
-              setFormServiceId(services[0]?.id || '');
+              if (rows[0]) setFormModelId(rows[0].modelId);
+              if (services[0]) setFormServiceId(services[0].id);
               setFormPrice(3500);
               setFormWarranty('360 يوم');
               setIsAddPriceModalOpen(true);
@@ -156,16 +207,23 @@ export function PricingMatrixPage() {
             <Plus className="w-4 h-4" />
             <span>إضافة / تحديث سعر خدمة</span>
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg shadow-sm hover:bg-slate-50">
-            <Upload className="w-3.5 h-3.5 text-blue-600" />
-            <span>استيراد Excel</span>
-          </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg shadow-sm hover:bg-slate-50">
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>تصدير Excel</span>
+          <button
+            onClick={fetchMatrix}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg shadow-sm hover:bg-slate-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
+            <span>تحديث الأسعار</span>
           </button>
         </div>
       </div>
+
+      {successMsg && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          {successMsg}
+        </div>
+      )}
 
       {/* Search and Filters */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -180,87 +238,94 @@ export function PricingMatrixPage() {
           />
         </div>
         <div className="text-xs text-slate-500 font-medium">
-          💡 يمكنك النقر على زر التعديل أو الحذف بجانب كل موديل وخدمة.
+          💡 انقر على أي سعر في الجدول لتعديله فوراً في قاعدة البيانات.
         </div>
       </div>
 
       {/* Matrix Table */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-right text-sm border-collapse">
-            <thead className="bg-slate-800 text-white font-semibold">
-              <tr>
-                <th className="py-3 px-4 w-60 border-l border-slate-700">الموديل والسلسلة</th>
-                {services.map((s) => (
-                  <th key={s.id} className="py-3 px-4 text-center border-l border-slate-700 last:border-l-0 min-w-[150px]">
-                    <div>{s.nameAr}</div>
-                    <div className="text-[10px] font-normal text-slate-400">{s.nameEn}</div>
-                  </th>
-                ))}
-                <th className="py-3 px-4 text-center w-24">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {filteredRows.map((r) => (
-                <tr key={r.modelId} className="hover:bg-slate-50">
-                  <td className="py-3 px-4 bg-slate-50 border-l border-slate-200 font-bold text-slate-900">
-                    <div>{r.modelName}</div>
-                    <div className="text-[11px] font-normal text-slate-500">{r.series}</div>
-                  </td>
-                  {services.map((s) => {
-                    const cell = r.prices[s.id];
-                    return (
-                      <td key={s.id} className="p-2 border-l border-slate-100 last:border-l-0 text-center">
-                        {cell ? (
-                          <div
-                            onClick={() => {
-                              setFormModelId(r.modelId);
-                              setFormServiceId(s.id);
-                              setFormPrice(cell.price);
-                              setFormWarranty(cell.warranty);
-                              setFormStatus(cell.status);
-                              setIsAddPriceModalOpen(true);
-                            }}
-                            className="border border-slate-200 rounded-lg p-2 bg-white hover:border-emerald-500 hover:shadow-xs cursor-pointer transition-all group"
-                          >
-                            <div className="font-extrabold text-slate-900 text-sm group-hover:text-emerald-700">
-                              {cell.price.toLocaleString()} ج.م
-                            </div>
-                            <div className="text-[11px] text-emerald-600 font-medium mt-0.5">
-                              {cell.warranty}
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setFormModelId(r.modelId);
-                              setFormServiceId(s.id);
-                              setFormPrice(2000);
-                              setFormWarranty('180 يوم');
-                              setIsAddPriceModalOpen(true);
-                            }}
-                            className="text-xs text-slate-400 hover:text-emerald-600 font-semibold p-2 border border-dashed border-slate-200 rounded-lg w-full"
-                          >
-                            + إضافة
-                          </button>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="py-3 px-4 text-center">
-                    <button
-                      onClick={() => handleDeleteModelRow(r.modelId)}
-                      className="p-1.5 text-rose-500 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors"
-                      title="حذف الموديل من المصفوفة"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
+        {isLoading && rows.length === 0 ? (
+          <div className="py-16 text-center text-slate-400">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-500" />
+            جاري تحميل مصفوفة الأسعار من السيرفر...
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-sm border-collapse">
+              <thead className="bg-slate-800 text-white font-semibold">
+                <tr>
+                  <th className="py-3 px-4 w-60 border-l border-slate-700">الموديل والسلسلة</th>
+                  {services.map((s) => (
+                    <th key={s.id} className="py-3 px-4 text-center border-l border-slate-700 last:border-l-0 min-w-[150px]">
+                      <div>{s.nameAr}</div>
+                      <div className="text-[10px] font-normal text-slate-400">{s.nameEn}</div>
+                    </th>
+                  ))}
+                  <th className="py-3 px-4 text-center w-24">إجراءات</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {filteredRows.map((r) => (
+                  <tr key={r.modelId} className="hover:bg-slate-50">
+                    <td className="py-3 px-4 bg-slate-50 border-l border-slate-200 font-bold text-slate-900">
+                      <div>{r.modelName}</div>
+                      <div className="text-[11px] font-normal text-slate-500">{r.series}</div>
+                    </td>
+                    {services.map((s) => {
+                      const cell = r.prices[s.slug];
+                      return (
+                        <td key={s.id} className="p-2 border-l border-slate-100 last:border-l-0 text-center">
+                          {cell ? (
+                            <div
+                              onClick={() => {
+                                setFormModelId(r.modelId);
+                                setFormServiceId(s.id);
+                                setFormPrice(cell.price);
+                                setFormWarranty(cell.warranty);
+                                setFormStatus(cell.status);
+                                setIsAddPriceModalOpen(true);
+                              }}
+                              className="border border-slate-200 rounded-lg p-2 bg-white hover:border-emerald-500 hover:shadow-xs cursor-pointer transition-all group"
+                            >
+                              <div className="font-extrabold text-slate-900 text-sm group-hover:text-emerald-700">
+                                {cell.price.toLocaleString()} ج.م
+                              </div>
+                              <div className="text-[11px] text-emerald-600 font-medium mt-0.5">
+                                {cell.warranty}
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setFormModelId(r.modelId);
+                                setFormServiceId(s.id);
+                                setFormPrice(2000);
+                                setFormWarranty('180 يوم');
+                                setIsAddPriceModalOpen(true);
+                              }}
+                              className="text-xs text-slate-400 hover:text-emerald-600 font-semibold p-2 border border-dashed border-slate-200 rounded-lg w-full"
+                            >
+                              + إضافة
+                            </button>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        onClick={() => handleDeleteModelRow(r.modelId)}
+                        className="p-1.5 text-rose-500 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors"
+                        title="إخفاء الموديل من المصفوفة"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Add / Edit Price Modal */}
@@ -359,10 +424,11 @@ export function PricingMatrixPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5"
+                  disabled={isSaving}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>تطبيق وحفظ السعر</span>
+                  <Save className={`w-3.5 h-3.5 ${isSaving ? 'animate-spin' : ''}`} />
+                  <span>{isSaving ? 'جاري الحفظ...' : 'تطبيق وحفظ السعر'}</span>
                 </button>
               </div>
             </form>

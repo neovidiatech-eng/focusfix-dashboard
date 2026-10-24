@@ -74,12 +74,65 @@ export const api = {
     return res.json();
   },
 
+  async createArea(data: any) {
+    const res = await fetch(`${API_BASE_URL}/areas/admin`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to create area');
+    return res.json();
+  },
+
   async updateArea(id: string, data: any) {
     const res = await fetch(`${API_BASE_URL}/areas/admin/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to update area');
+    return res.json();
+  },
+
+  // Catalog
+  async getDeviceTypes() {
+    const res = await fetch(`${API_BASE_URL}/catalog/device-types`);
+    return res.json();
+  },
+
+  async getModels(type = 'iphone') {
+    const res = await fetch(`${API_BASE_URL}/catalog/models?type=${type}`);
+    return res.json();
+  },
+
+  async getServices() {
+    const res = await fetch(`${API_BASE_URL}/catalog/services`);
+    return res.json();
+  },
+
+  // Messages
+  async getMessages() {
+    const res = await fetch(`${API_BASE_URL}/contact/admin/messages`, { headers: getAuthHeaders() });
+    return res.json();
+  },
+
+  async getQuotes() {
+    const res = await fetch(`${API_BASE_URL}/contact/admin/quotes`, { headers: getAuthHeaders() });
+    return res.json();
+  },
+
+  async updateMessageStatus(id: string, status: string) {
+    const res = await fetch(`${API_BASE_URL}/contact/admin/messages/${id}/status`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    return res.json();
+  },
+
+  // Audit Log
+  async getAuditLog() {
+    const res = await fetch(`${API_BASE_URL}/admin/audit-log`, { headers: getAuthHeaders() });
     return res.json();
   },
 

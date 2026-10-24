@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Plus, Smartphone, Wrench, Edit, Trash2, X, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Smartphone, Wrench, Edit, Trash2, X, Save, RefreshCw } from 'lucide-react';
+import { api } from '../../lib/api';
 
 interface DeviceModel {
   id: string;
@@ -27,6 +28,53 @@ export function CatalogPage() {
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<DeviceModel | null>(null);
   const [editingService, setEditingService] = useState<ServiceItem | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchCatalog = async () => {
+    setIsLoading(true);
+    try {
+      const [modelsData, servicesData] = await Promise.allSettled([
+        api.getModels('iphone'),
+        api.getServices(),
+      ]);
+
+      if (modelsData.status === 'fulfilled' && Array.isArray(modelsData.value) && modelsData.value.length > 0) {
+        setModels(
+          modelsData.value.map((m: any) => ({
+            id: m.id,
+            nameAr: m.name,
+            nameEn: m.name,
+            slug: m.slug,
+            seriesAr: m.series_ar || 'سلسلة آيفون',
+            seriesEn: m.series_en || 'iPhone Series',
+            typeId: m.type_id || 'iphone',
+            year: m.release_year || 2024,
+          }))
+        );
+      }
+
+      if (servicesData.status === 'fulfilled' && Array.isArray(servicesData.value) && servicesData.value.length > 0) {
+        setServices(
+          servicesData.value.map((s: any) => ({
+            id: s.id,
+            nameAr: s.name_ar,
+            nameEn: s.name_en,
+            slug: s.slug,
+            estimatedMinutes: s.estimated_minutes || 25,
+            iconName: s.icon || 'Wrench',
+          }))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to load catalog from server:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCatalog();
+  }, []);
 
   const [models, setModels] = useState<DeviceModel[]>([
     { id: '1', nameAr: 'آيفون 16 برو ماكس', nameEn: 'iPhone 16 Pro Max', slug: 'iphone-16-pro-max', seriesAr: 'سلسلة آيفون 16', seriesEn: 'iPhone 16 Series', typeId: 'iphone', year: 2024 },
@@ -171,6 +219,14 @@ export function CatalogPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={fetchCatalog}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
+            تحديث
+          </button>
           {activeTab === 'models' ? (
             <button
               onClick={handleOpenNewModel}

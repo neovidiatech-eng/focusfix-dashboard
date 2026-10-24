@@ -68,15 +68,15 @@ export function OverviewPage() {
     {
       title: 'الإيراد التقديري',
       value: statsData?.estimatedRevenue ? `${Number(statsData.estimatedRevenue).toLocaleString()} ج.م` : '0 ج.م',
-      change: '+24%',
+      change: 'محدث من الحجوزات الفعلية',
       isPositive: true,
       icon: DollarSign,
       color: 'bg-emerald-500',
     },
     {
       title: 'حجوزات مؤكدة ومكتملة',
-      value: statsData ? String((statsData.confirmedBookings || 0) + (statsData.completedBookings || 0)) : '...',
-      change: 'معدل إتمام ممتاز',
+      value: statsData ? String((statsData.confirmedBookings || 0) + (statsData.completedBookings || 0)) : '0',
+      change: 'محدث تلقائياً',
       isPositive: true,
       icon: TrendingUp,
       color: 'bg-indigo-500',

@@ -38,14 +38,7 @@ export function PricingMatrixPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  const [services, setServices] = useState<ServiceColumn[]>([
-    { id: 'screen', slug: 'screen', nameAr: 'تغيير شاشة أصلية', nameEn: 'Screen Replacement' },
-    { id: 'battery', slug: 'battery', nameAr: 'تغيير بطارية أبل', nameEn: 'Battery Replacement' },
-    { id: 'back-glass', slug: 'back-glass', nameAr: 'تغيير ظهر ليزر', nameEn: 'Back Glass' },
-    { id: 'camera', slug: 'camera', nameAr: 'صيانة كاميرا', nameEn: 'Camera Repair' },
-    { id: 'charging', slug: 'charging', nameAr: 'مدخل وفلكس شحن', nameEn: 'Charging Port' },
-  ]);
-
+  const [services, setServices] = useState<ServiceColumn[]>([]);
   const [rows, setRows] = useState<MatrixRow[]>([]);
 
   // Modal Form States

@@ -8,8 +8,25 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+/**
+ * Central fetch wrapper that auto-handles 401 (expired/invalid token).
+ * Clears localStorage and redirects to /login without crashing the UI.
+ */
+async function authFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
+  const res = await fetch(input, init);
+  if (res.status === 401) {
+    localStorage.removeItem('focusfix_admin_token');
+    localStorage.removeItem('focusfix_admin_user');
+    if (!window.location.pathname.includes('/login')) {
+      window.location.href = '/login';
+    }
+    throw new Error('انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً.');
+  }
+  return res;
+}
+
 export const api = {
-  // Auth
+  // Auth — uses plain fetch (no auth header needed)
   async login(email: string, password: string) {
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
@@ -22,25 +39,25 @@ export const api = {
 
   // Badges & Stats
   async getBadges() {
-    const res = await fetch(`${API_BASE_URL}/admin/badges`, { headers: getAuthHeaders() });
+    const res = await authFetch(`${API_BASE_URL}/admin/badges`, { headers: getAuthHeaders() });
     return res.json();
   },
 
   async getStats() {
-    const res = await fetch(`${API_BASE_URL}/admin/stats`, { headers: getAuthHeaders() });
+    const res = await authFetch(`${API_BASE_URL}/admin/stats`, { headers: getAuthHeaders() });
     return res.json();
   },
 
   // Pricing Matrix
   async getPricingMatrix(type = 'iphone') {
-    const res = await fetch(`${API_BASE_URL}/pricing/admin/matrix?type=${type}`, {
+    const res = await authFetch(`${API_BASE_URL}/pricing/admin/matrix?type=${type}`, {
       headers: getAuthHeaders(),
     });
     return res.json();
   },
 
-  async updatePricingMatrix(updates: any[]) {
-    const res = await fetch(`${API_BASE_URL}/pricing/admin/matrix`, {
+  async updatePricingMatrix(updates: unknown[]) {
+    const res = await authFetch(`${API_BASE_URL}/pricing/admin/matrix`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ updates }),
@@ -52,14 +69,15 @@ export const api = {
   // Bookings
   async getBookings(params: Record<string, string> = {}) {
     const qs = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE_URL}/bookings/admin/all?${qs}`, {
+    const res = await authFetch(`${API_BASE_URL}/bookings/admin/all?${qs}`, {
       headers: getAuthHeaders(),
     });
+    if (!res.ok) throw new Error(`فشل تحميل الحجوزات (${res.status})`);
     return res.json();
   },
 
   async updateBookingStatus(id: string, status: string, note?: string) {
-    const res = await fetch(`${API_BASE_URL}/bookings/admin/${id}/status`, {
+    const res = await authFetch(`${API_BASE_URL}/bookings/admin/${id}/status`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
       body: JSON.stringify({ status, note }),
@@ -68,14 +86,14 @@ export const api = {
     return res.json();
   },
 
-  // Areas
+  // Areas — public reads, admin writes
   async getAreas() {
     const res = await fetch(`${API_BASE_URL}/areas`);
     return res.json();
   },
 
-  async createArea(data: any) {
-    const res = await fetch(`${API_BASE_URL}/areas/admin`, {
+  async createArea(data: unknown) {
+    const res = await authFetch(`${API_BASE_URL}/areas/admin`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -84,8 +102,8 @@ export const api = {
     return res.json();
   },
 
-  async updateArea(id: string, data: any) {
-    const res = await fetch(`${API_BASE_URL}/areas/admin/${id}`, {
+  async updateArea(id: string, data: unknown) {
+    const res = await authFetch(`${API_BASE_URL}/areas/admin/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -94,7 +112,7 @@ export const api = {
     return res.json();
   },
 
-  // Catalog
+  // Catalog — public reads
   async getDeviceTypes() {
     const res = await fetch(`${API_BASE_URL}/catalog/device-types`);
     return res.json();
@@ -112,17 +130,17 @@ export const api = {
 
   // Messages
   async getMessages() {
-    const res = await fetch(`${API_BASE_URL}/contact/admin/messages`, { headers: getAuthHeaders() });
+    const res = await authFetch(`${API_BASE_URL}/contact/admin/messages`, { headers: getAuthHeaders() });
     return res.json();
   },
 
   async getQuotes() {
-    const res = await fetch(`${API_BASE_URL}/contact/admin/quotes`, { headers: getAuthHeaders() });
+    const res = await authFetch(`${API_BASE_URL}/contact/admin/quotes`, { headers: getAuthHeaders() });
     return res.json();
   },
 
   async updateMessageStatus(id: string, status: string) {
-    const res = await fetch(`${API_BASE_URL}/contact/admin/messages/${id}/status`, {
+    const res = await authFetch(`${API_BASE_URL}/contact/admin/messages/${id}/status`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
       body: JSON.stringify({ status }),
@@ -132,18 +150,18 @@ export const api = {
 
   // Audit Log
   async getAuditLog() {
-    const res = await fetch(`${API_BASE_URL}/admin/audit-log`, { headers: getAuthHeaders() });
+    const res = await authFetch(`${API_BASE_URL}/admin/audit-log`, { headers: getAuthHeaders() });
     return res.json();
   },
 
   // Settings
   async getSettings() {
-    const res = await fetch(`${API_BASE_URL}/settings/admin`, { headers: getAuthHeaders() });
+    const res = await authFetch(`${API_BASE_URL}/settings/admin`, { headers: getAuthHeaders() });
     return res.json();
   },
 
   async updateSettings(settings: Array<{ key: string; value: string }>) {
-    const res = await fetch(`${API_BASE_URL}/settings/admin`, {
+    const res = await authFetch(`${API_BASE_URL}/settings/admin`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ settings }),

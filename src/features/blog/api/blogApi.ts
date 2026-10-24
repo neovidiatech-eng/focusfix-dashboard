@@ -10,6 +10,19 @@ function getAdminAuthHeaders(extraHeaders: Record<string, string> = {}): Headers
   };
 }
 
+async function authFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
+  const res = await fetch(input, init);
+  if (res.status === 401) {
+    localStorage.removeItem('focusfix_admin_token');
+    localStorage.removeItem('focusfix_admin_user');
+    if (!window.location.pathname.includes('/login')) {
+      window.location.href = '/login';
+    }
+    throw new Error('انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً.');
+  }
+  return res;
+}
+
 const isUuid = (val?: string | null) =>
   val ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) : false;
 
@@ -151,7 +164,7 @@ export const blogApi = {
   }): Promise<{ posts: BlogPost[]; counts: Record<string, number> }> {
     try {
       const query = new URLSearchParams(params as Record<string, string>).toString();
-      const res = await fetch(`${API_BASE_URL}/admin/all?${query}`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/all?${query}`, {
         headers: getAdminAuthHeaders(),
       });
       if (res.ok) {
@@ -210,43 +223,15 @@ export const blogApi = {
       console.error('Failed to load posts from server:', err);
     }
 
-    let list = getLocalPosts();
-
-    if (params?.status && params.status !== 'all') {
-      list = list.filter((p) => p.status === params.status);
-    }
-    if (params?.categoryId && params.categoryId !== 'all') {
-      list = list.filter((p) => p.categoryId === params.categoryId);
-    }
-    if (params?.authorId && params.authorId !== 'all') {
-      list = list.filter((p) => p.authorId === params.authorId);
-    }
-    if (params?.search) {
-      const q = params.search.toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.titleAr.toLowerCase().includes(q) ||
-          p.titleEn.toLowerCase().includes(q) ||
-          p.slug.toLowerCase().includes(q)
-      );
-    }
-
-    const allPosts = getLocalPosts();
     return {
-      posts: list,
-      counts: {
-        all: allPosts.filter((p) => p.status !== 'archived').length,
-        published: allPosts.filter((p) => p.status === 'published').length,
-        draft: allPosts.filter((p) => p.status === 'draft').length,
-        scheduled: allPosts.filter((p) => p.status === 'scheduled').length,
-        trash: allPosts.filter((p) => p.status === 'archived').length,
-      },
+      posts: [],
+      counts: { all: 0, published: 0, draft: 0, scheduled: 0, trash: 0 },
     };
   },
 
   async getPostById(id: string): Promise<BlogPost | null> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/posts/${id}`, {
         headers: getAdminAuthHeaders(),
       });
       if (res.ok) {
@@ -339,7 +324,7 @@ export const blogApi = {
       tags: postData.tags?.map((t) => t.id),
     };
 
-    const res = await fetch(`${API_BASE_URL}/admin/posts`, {
+    const res = await authFetch(`${API_BASE_URL}/admin/posts`, {
       method: 'POST',
       headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload),
@@ -415,7 +400,7 @@ export const blogApi = {
         tags: postData.tags?.map((t) => t.id),
       };
 
-      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/posts/${id}`, {
         method: 'PUT',
         headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
@@ -454,7 +439,7 @@ export const blogApi = {
 
   async duplicatePost(id: string): Promise<BlogPost> {
     if (isUuid(id)) {
-      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}/duplicate`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/posts/${id}/duplicate`, {
         method: 'POST',
         headers: getAdminAuthHeaders(),
       });
@@ -488,7 +473,7 @@ export const blogApi = {
 
   async moveToTrash(id: string): Promise<void> {
     if (isUuid(id)) {
-      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}/trash`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/posts/${id}/trash`, {
         method: 'PATCH',
         headers: getAdminAuthHeaders(),
       });
@@ -503,7 +488,7 @@ export const blogApi = {
 
   async restoreFromTrash(id: string): Promise<void> {
     if (isUuid(id)) {
-      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}/restore`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/posts/${id}/restore`, {
         method: 'PATCH',
         headers: getAdminAuthHeaders(),
       });
@@ -522,7 +507,7 @@ export const blogApi = {
 
   async permanentlyDelete(id: string): Promise<void> {
     if (isUuid(id)) {
-      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/posts/${id}`, {
         method: 'DELETE',
         headers: getAdminAuthHeaders(),
       });
@@ -538,7 +523,7 @@ export const blogApi = {
   async bulkAction(ids: string[], action: 'trash' | 'restore' | 'delete' | 'publish' | 'draft'): Promise<void> {
     const realUuids = ids.filter((id) => isUuid(id));
     if (realUuids.length > 0) {
-      await fetch(`${API_BASE_URL}/admin/bulk`, {
+      await authFetch(`${API_BASE_URL}/admin/bulk`, {
         method: 'PATCH',
         headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
@@ -556,7 +541,7 @@ export const blogApi = {
   // 2. Categories CRUD
   async getCategories(): Promise<BlogCategory[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/categories`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/categories`, {
         headers: getAdminAuthHeaders(),
       });
       if (res.ok) {
@@ -584,7 +569,7 @@ export const blogApi = {
 
   async createCategory(cat: Partial<BlogCategory>): Promise<BlogCategory> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/categories`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/categories`, {
         method: 'POST',
         headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
@@ -635,7 +620,7 @@ export const blogApi = {
 
   async deleteCategory(id: string): Promise<void> {
     if (isUuid(id)) {
-      await fetch(`${API_BASE_URL}/admin/categories/${id}`, {
+      await authFetch(`${API_BASE_URL}/admin/categories/${id}`, {
         method: 'DELETE',
         headers: getAdminAuthHeaders(),
       }).catch(() => {});
@@ -648,7 +633,7 @@ export const blogApi = {
   async getTags(query?: string): Promise<BlogTag[]> {
     try {
       const url = query ? `${API_BASE_URL}/admin/tags?q=${encodeURIComponent(query)}` : `${API_BASE_URL}/admin/tags`;
-      const res = await fetch(url, { headers: getAdminAuthHeaders() });
+      const res = await authFetch(url, { headers: getAdminAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -675,7 +660,7 @@ export const blogApi = {
   async createTag(nameAr: string, nameEn?: string): Promise<BlogTag> {
     const slug = nameAr.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]+/g, '-');
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/tags`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/tags`, {
         method: 'POST',
         headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ name_ar: nameAr, name_en: nameEn || nameAr, slug }),
@@ -713,7 +698,7 @@ export const blogApi = {
   // 4. Authors CRUD
   async getAuthors(): Promise<BlogAuthor[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/authors`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/authors`, {
         headers: getAdminAuthHeaders(),
       });
       if (res.ok) {
@@ -742,7 +727,7 @@ export const blogApi = {
 
   async createAuthor(authorData: Partial<BlogAuthor>): Promise<BlogAuthor> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/authors`, {
+      const res = await authFetch(`${API_BASE_URL}/admin/authors`, {
         method: 'POST',
         headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({

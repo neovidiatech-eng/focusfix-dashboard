@@ -5,9 +5,6 @@ export function Header() {
     <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-20">
       <div className="flex items-center gap-4">
         <h2 className="text-base font-semibold text-slate-800">إدارة منصة FocusFix</h2>
-        <span className="text-xs bg-emerald-100 text-emerald-800 font-medium px-2.5 py-0.5 rounded-full">
-          المرحلة الأولى (MVP)
-        </span>
       </div>
 
       <div className="flex items-center gap-4">

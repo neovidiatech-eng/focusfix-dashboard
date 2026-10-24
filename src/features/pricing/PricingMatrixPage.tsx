@@ -31,6 +31,7 @@ interface MatrixRow {
 }
 
 export function PricingMatrixPage() {
+  const [deviceType, setDeviceType] = useState<'iphone' | 'ipad' | 'apple-watch'>('iphone');
   const [search, setSearch] = useState<string>('');
   const [isAddPriceModalOpen, setIsAddPriceModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,7 +41,7 @@ export function PricingMatrixPage() {
   const [services, setServices] = useState<ServiceColumn[]>([
     { id: 'screen', slug: 'screen', nameAr: 'تغيير شاشة أصلية', nameEn: 'Screen Replacement' },
     { id: 'battery', slug: 'battery', nameAr: 'تغيير بطارية أبل', nameEn: 'Battery Replacement' },
-    { id: 'back', slug: 'back', nameAr: 'تغيير ظهر ليزر', nameEn: 'Back Glass' },
+    { id: 'back-glass', slug: 'back-glass', nameAr: 'تغيير ظهر ليزر', nameEn: 'Back Glass' },
     { id: 'camera', slug: 'camera', nameAr: 'صيانة كاميرا', nameEn: 'Camera Repair' },
     { id: 'charging', slug: 'charging', nameAr: 'مدخل وفلكس شحن', nameEn: 'Charging Port' },
   ]);
@@ -54,10 +55,10 @@ export function PricingMatrixPage() {
   const [formWarranty, setFormWarranty] = useState('360 يوم');
   const [formStatus, setFormStatus] = useState<'available' | 'on_request' | 'unavailable' | 'included'>('available');
 
-  const fetchMatrix = async () => {
+  const fetchMatrix = async (type = deviceType) => {
     setIsLoading(true);
     try {
-      const data = await api.getPricingMatrix('iphone');
+      const data = await api.getPricingMatrix(type);
       if (data) {
         // 1. Map columns / services
         let cols: ServiceColumn[] = [];
@@ -104,7 +105,7 @@ export function PricingMatrixPage() {
             flatRows.push({
               modelId: m.id,
               modelName: m.name,
-              series: m.series_ar || m.series_en || 'سلسلة آيفون',
+              series: m.series_ar || m.series_en || 'الأجهزة',
               prices: pricesMap,
             });
           });
@@ -130,16 +131,14 @@ export function PricingMatrixPage() {
               flatRows.push({
                 modelId: m.id,
                 modelName: m.name,
-                series: sGroup.title || 'سلسلة آيفون',
+                series: sGroup.title || 'الأجهزة',
                 prices: pricesMap,
               });
             });
           });
         }
 
-        if (flatRows.length > 0) {
-          setRows(flatRows);
-        }
+        setRows(flatRows);
       }
     } catch (err) {
       console.error('Failed to load pricing matrix:', err);
@@ -149,8 +148,8 @@ export function PricingMatrixPage() {
   };
 
   useEffect(() => {
-    fetchMatrix();
-  }, []);
+    fetchMatrix(deviceType);
+  }, [deviceType]);
 
   const handleSavePriceModal = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,7 +249,7 @@ export function PricingMatrixPage() {
             <span>إضافة / تحديث سعر خدمة</span>
           </button>
           <button
-            onClick={fetchMatrix}
+            onClick={() => fetchMatrix()}
             disabled={isLoading}
             className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg shadow-sm hover:bg-slate-50"
           >
@@ -267,20 +266,43 @@ export function PricingMatrixPage() {
         </div>
       )}
 
-      {/* Search and Filters */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="بحث عن موديل أو فئة..."
-            className="w-full pl-4 pr-10 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
+      {/* Search and Category Tabs */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Device Categories */}
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          {[
+            { id: 'iphone', label: 'iPhone' },
+            { id: 'ipad', label: 'iPad' },
+            { id: 'apple-watch', label: 'Apple Watch' },
+          ].map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setDeviceType(cat.id as any)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                deviceType === cat.id
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
-        <div className="text-xs text-slate-500 font-medium">
-          💡 انقر على أي سعر في الجدول لتعديله فوراً في قاعدة البيانات.
+
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="relative w-full md:w-72">
+            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="بحث عن موديل أو فئة..."
+              className="w-full pl-4 pr-10 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <span className="hidden lg:inline text-xs text-slate-400">
+            💡 اضغط على أي سعر لتعديله فوراً
+          </span>
         </div>
       </div>
 
@@ -290,6 +312,11 @@ export function PricingMatrixPage() {
           <div className="py-16 text-center text-slate-400">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-500" />
             جاري تحميل مصفوفة الأسعار من السيرفر...
+          </div>
+        ) : filteredRows.length === 0 ? (
+          <div className="py-16 text-center text-slate-500 space-y-3">
+            <p className="font-bold text-slate-700">لا توجد موديلات أو أسعار مسجلة لتصنيف ({deviceType}) حالياً</p>
+            <p className="text-xs text-slate-400">يمكنك الذهاب إلى صفحة الكتالوج لإضافة موديل جديد تحت هذا التصنيف أولاً، ثم إضافة أسعاره هنا.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

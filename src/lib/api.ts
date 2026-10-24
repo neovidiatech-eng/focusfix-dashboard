@@ -119,12 +119,61 @@ export const api = {
   },
 
   async getModels(type = 'iphone') {
-    const res = await fetch(`${API_BASE_URL}/catalog/models?type=${type}`);
+    const qs = type ? `?type=${type}` : '';
+    const res = await fetch(`${API_BASE_URL}/catalog/models${qs}`);
     return res.json();
   },
 
   async getServices() {
     const res = await fetch(`${API_BASE_URL}/catalog/services`);
+    return res.json();
+  },
+
+  async createModel(data: any) {
+    const res = await authFetch(`${API_BASE_URL}/catalog/admin/models`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to create model');
+    return res.json();
+  },
+
+  async updateModel(id: string, data: any) {
+    const res = await authFetch(`${API_BASE_URL}/catalog/admin/models/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to update model');
+    return res.json();
+  },
+
+  async deleteModel(id: string) {
+    const res = await authFetch(`${API_BASE_URL}/catalog/admin/models/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to delete model');
+    return res.json();
+  },
+
+  async createService(data: any) {
+    const res = await authFetch(`${API_BASE_URL}/catalog/admin/services`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to create service');
+    return res.json();
+  },
+
+  async deleteService(id: string) {
+    const res = await authFetch(`${API_BASE_URL}/catalog/admin/services/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to delete service');
     return res.json();
   },
 

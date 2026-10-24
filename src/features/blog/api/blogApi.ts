@@ -10,280 +10,78 @@ function getAdminAuthHeaders(extraHeaders: Record<string, string> = {}): Headers
   };
 }
 
-// In-memory demo data with realistic data for FocusFix
+const isUuid = (val?: string | null) =>
+  val ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) : false;
+
+// Initial Fallback categories
 const initialCategories: BlogCategory[] = [
   {
-    id: 'cat-1',
-    nameAr: 'نصائح صيانة أبل',
-    nameEn: 'Apple Maintenance Tips',
-    slug: 'apple-maintenance',
-    descriptionAr: 'أدلة إرشادية ونصائح للحفاظ على أجهزة آبل في أفضل كفاءة',
-    descriptionEn: 'Guides and tips to maintain Apple devices at peak performance',
-    postCount: 5,
-    children: [
-      {
-        id: 'cat-1-1',
-        nameAr: 'حيل إطالة عمر البطارية',
-        nameEn: 'Battery Life Hacks',
-        slug: 'battery-hacks',
-        parentId: 'cat-1',
-        parentName: 'نصائح صيانة أبل',
-        postCount: 2,
-      },
-    ],
-  },
-  {
-    id: 'cat-2',
-    nameAr: 'شاشات الآيفون الأصلية',
-    nameEn: 'Original iPhone Screens',
+    id: '74539e38-9d2a-4439-a8c9-3c14564c6498',
+    nameAr: 'شاشات الآيفون',
+    nameEn: 'iPhone Screens',
     slug: 'iphone-screens',
-    descriptionAr: 'مقارنات تقنية وضمانات شاشات OLED و Super Retina XDR',
-    descriptionEn: 'Technical comparisons and warranties for OLED screens',
-    postCount: 4,
+    descriptionAr: 'كل ما يخص تغيير وفحص شاشات أجهزة آبل الأصلية',
+    postCount: 0,
   },
   {
-    id: 'cat-3',
-    nameAr: 'بطاريات أبل المعتمدة',
-    nameEn: 'Certified Apple Batteries',
+    id: 'cdeb5805-0431-4cc5-86e1-bd2ae0c3b4a0',
+    nameAr: 'بطاريات أبل',
+    nameEn: 'Apple Batteries',
     slug: 'apple-batteries',
-    descriptionAr: 'معايير فحص كفاءة البطاريات والشحن السريع',
-    descriptionEn: 'Battery health assessment and fast charging standards',
-    postCount: 3,
+    descriptionAr: 'دليل عمر البطارية وتغيير البطاريات الفورية',
+    postCount: 0,
   },
   {
-    id: 'cat-4',
-    nameAr: 'أعطال البوردة والآي سي',
-    nameEn: 'Logic Board & IC Repairs',
-    slug: 'logic-board-repairs',
-    descriptionAr: 'إصلاح الدوائر المعقدة ومشاكل الشحن والشبكة',
-    descriptionEn: 'Micro-soldering and logic board diagnosis',
-    postCount: 2,
+    id: 'c87e65bd-1e02-4967-88e5-2926ca11306a',
+    nameAr: 'أعطال وحلول',
+    nameEn: 'Troubleshooting',
+    slug: 'troubleshooting',
+    descriptionAr: 'حلول مشاكل سقوط المياه واللوحة الأم والكاميرات',
+    postCount: 0,
   },
-];
-
-const initialTags: BlogTag[] = [
-  { id: 'tag-1', nameAr: 'صيانة آيفون 16', nameEn: 'iPhone 16 Repair', slug: 'iphone-16', postCount: 4 },
-  { id: 'tag-2', nameAr: 'شاشة أصلية', nameEn: 'Original Screen', slug: 'original-screen', postCount: 6 },
-  { id: 'tag-3', nameAr: 'صحة البطارية', nameEn: 'Battery Health', slug: 'battery-health', postCount: 5 },
-  { id: 'tag-4', nameAr: 'ضمان سنة', nameEn: '1 Year Warranty', slug: 'warranty', postCount: 8 },
-  { id: 'tag-5', nameAr: 'صيانة منزلية', nameEn: 'Home Repair', slug: 'home-repair', postCount: 9 },
-  { id: 'tag-6', nameAr: 'Apple Care', nameEn: 'Apple Care', slug: 'apple-care', postCount: 3 },
+  {
+    id: '3708c2d9-b255-4eeb-a90d-828a2f838557',
+    nameAr: 'خدمات FocusFix',
+    nameEn: 'FocusFix Services',
+    slug: 'focusfix-services',
+    descriptionAr: 'خدمات الصيانة المنزلية والضمان وخصوصية العملاء',
+    postCount: 0,
+  },
 ];
 
 const initialAuthors: BlogAuthor[] = [
   {
-    id: 'auth-1',
-    nameAr: 'م. أحمد الشريف',
-    nameEn: 'Eng. Ahmed El-Sherif',
-    slug: 'ahmed-elsherif',
+    id: '0c6d1d22-9a9f-474e-90f7-5b3b04b576c8',
+    nameAr: 'فريق FocusFix التقني',
+    nameEn: 'FocusFix Tech Team',
+    slug: 'focusfix-team',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    roleTitle: 'خبير صيانة معتمد من Apple',
-    bioAr: 'مهندس إلكترونيات متخصص في صيانة أجهزة iOS والأجهزة اللوحية بخبرة تتجاوز 9 سنوات في مصر.',
-    bioEn: 'Certified hardware engineer specializing in Apple logic boards and screen calibration.',
-    postCount: 8,
-  },
-  {
-    id: 'auth-2',
-    nameAr: 'سارة عبد الرحمن',
-    nameEn: 'Sara Abdelrahman',
-    slug: 'sara-abdelrahman',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
-    roleTitle: 'أخصائية أمن وخصوصية بيانات',
-    bioAr: 'باحثة تقنية متخصصة في حماية بيانات مستخدمي الهواتف الذكية وضمان سرية الملفات أثناء الصيانة.',
-    bioEn: 'Cybersecurity researcher focused on mobile data privacy and zero-access repairs.',
-    postCount: 4,
+    roleTitle: 'مهندس صيانة معتمد',
+    bioAr: 'خبراء معتمدون في صيانة أجهزة آبل الذكية واللوحات الأم',
+    postCount: 0,
   },
 ];
 
-const initialPosts: BlogPost[] = [
-  {
-    id: 'post-1',
-    slug: 'when-to-replace-iphone-battery',
-    titleAr: 'متى يجب عليك تغيير بطارية الآيفون؟ 5 علامات مؤكدة وحلول عملية',
-    titleEn: 'When Should You Replace Your iPhone Battery? 5 Sure Signs and Practical Solutions',
-    excerptAr: 'هل لاحظت هبوط صحة البطارية أسفل 80%؟ تعرف على المؤشرات الحقيقية لتلف البطارية وكيف تتم الصيانة المنزلية بضمان رسمي.',
-    excerptEn: 'Did battery health drop below 80%? Discover key symptoms of degradation and certified on-site replacement solutions.',
-    contentHtml: `
-      <h2>أهمية مراقبة صحة بطارية الآيفون</h2>
-      <p>تعتبر بطارية الآيفون المصنوعة من الليثيوم أيون عنصرًا كيميائيًا قابلاً للاستهلاك بمرور الوقت، ومع زيادة دورات الشحن تقل قدرتها على الاحتفاظ بالطاقة.</p>
-      
-      <h2>العلامات الخمس المؤكدة لتلف البطارية</h2>
-      <ul>
-        <li>هبوط مؤشر صحة البطارية (Maximum Capacity) إلى ما دون 80%.</li>
-        <li>انخفاض مفاجئ في نسبة الشحن من 40% إلى 10% خلال دقائق معدودة.</li>
-        <li>ارتفاع ملحوظ في حرارة الجهاز أثناء التصفح العادي أو الشحن.</li>
-        <li>تباطؤ استجابة التطبيقات وتهنيج النظام لحماية المعالج.</li>
-        <li>انتفاخ خفيف في الشاشة نتيجة تمدد خلايا البطارية (حالة طارئة).</li>
-      </ul>
-
-      <blockquote>"لا تؤجل استبدال البطارية المنتفخة أبدًا، لأنها تشكل خطرًا مباشرًا على الشاشة ولوحة الأم."</blockquote>
-
-      <h2>كيف تحجز صيانة بطارية فورية أمام منزلك؟</h2>
-      <p>مع خدمة FocusFix، يصلك الفني المعتمد في سيارة مجهزة بالكامل لفك البطارية القديمة وتركيب قطعة أصلية جديدة مع اختبار برمجي وضمان كامل 180 يومًا دون مساس ببياناتك.</p>
-    `,
-    contentHtmlEn: `
-      <h2>The Importance of iPhone Battery Health</h2>
-      <p>Lithium-ion batteries are consumable components that chemically age over charge cycles, reducing run time.</p>
-      <h2>5 Sure Signs Your Battery Needs Replacement</h2>
-      <ul>
-        <li>Battery Health capacity falls below 80%.</li>
-        <li>Sudden drops in battery percentage within minutes.</li>
-        <li>Unusual device heating during standard use.</li>
-        <li>Performance throttling causing UI lag.</li>
-        <li>Physical swelling pushing against the display.</li>
-      </ul>
-    `,
-    categoryId: 'cat-3',
-    category: initialCategories[2],
-    authorId: 'auth-1',
-    author: initialAuthors[0],
-    tags: [initialTags[2], initialTags[3], initialTags[4]],
-    featuredImage: 'https://images.unsplash.com/photo-1591337676887-a217a6970a8a?auto=format&fit=crop&w=1200&q=80',
-    featuredImageAlt: 'فني FocusFix يقوم بفحص بطارية هاتف آيفون حديثة',
-    featuredImageCaption: 'فحص دوري لبطارية الآيفون بجهاز الفحص الإلكتروني المتطور',
-    focusKeyword: 'تغيير بطارية الآيفون',
-    seoTitle: 'متى يجب تغيير بطارية الآيفون؟ 5 علامات مؤكدة | FocusFix',
-    seoDesc: 'تعرف على علامات تلف بطارية الآيفون وكيفية استبدالها أمام منزلك بقطع أصلية وضمان رسمي 180 يومًا من فوكس فيكس.',
-    canonicalUrl: 'https://focusfix.net/blog/when-to-replace-iphone-battery',
-    robotsIndex: true,
-    robotsFollow: true,
-    status: 'published',
-    readingMinutes: 4,
-    viewsCount: 1420,
-    publishedAt: '2026-03-20T10:00:00.000Z',
-    createdAt: '2026-03-18T10:00:00.000Z',
-    updatedAt: '2026-03-20T10:00:00.000Z',
-    seoScore: 94,
-    relatedPostIds: ['post-2'],
-  },
-  {
-    id: 'post-2',
-    slug: 'original-vs-copy-iphone-screen',
-    titleAr: 'الفرق بين شاشة الآيفون الأصلية والتقليد: دليلك الكامل قبل الصيانة',
-    titleEn: 'Original vs Replica iPhone Screen: Complete Guide Before Repair',
-    excerptAr: 'تعرف على الفروقات الجوهرية في ألوان OLED ومعدل التحديث 120Hz وسطوع الشاشة تحت الشمس وكيف تتجنب الغش التجاري.',
-    excerptEn: 'Learn the critical differences in OLED color fidelity, 120Hz ProMotion refresh rate, and outdoor brightness.',
-    contentHtml: `
-      <h2>لماذا تعتبر الشاشة أهم مكون في الآيفون؟</h2>
-      <p>شاشات الآيفون الحديثة تعتمد تقنية Super Retina XDR مع دعم ProMotion بتردد 120 هرتز وتقنية True Tone لمطابقة حرارة الإضاءة المحيطة.</p>
-
-      <h2>الفروق الفنية بين الشاشات الأصلية والتجارية</h2>
-      <ul>
-        <li><strong>دقة الألوان والتباين:</strong> الشاشات الأصلية تقدم لون أسود حقيقي بنسبة تباين لا نهائية.</li>
-        <li><strong>مستشعر True Tone:</strong> يفقد العمل تمامًا مع الشاشات التجارية دون جهاز نقل البيانات البرمجية.</li>
-        <li><strong>استهلاك البطارية:</strong> الشاشات المقلدة تستهلك طاقة أعلى بنسبة 35% بسبب إضاءة الخلفية الرديئة.</li>
-      </ul>
-    `,
-    categoryId: 'cat-2',
-    category: initialCategories[1],
-    authorId: 'auth-1',
-    author: initialAuthors[0],
-    tags: [initialTags[0], initialTags[1], initialTags[3]],
-    featuredImage: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=1200&q=80',
-    featuredImageAlt: 'مقارنة دقيقة بين شاشة آيفون أصلية وأخرى مقلدة',
-    featuredImageCaption: 'فحص مصفوفة البيكسلات في شاشات FocusFix الأصلية',
-    focusKeyword: 'شاشة الآيفون الأصلية',
-    seoTitle: 'الفرق بين شاشة الآيفون الأصلية والتقليد | FocusFix دليلك الكامل',
-    seoDesc: 'مقارنة فنية شاملة توضح الفروق بين شاشة الآيفون الأصلية والشاشة التجارية المقلدة لتتجنب الوقوع في فخ الغش.',
-    canonicalUrl: 'https://focusfix.net/blog/original-vs-copy-iphone-screen',
-    robotsIndex: true,
-    robotsFollow: true,
-    status: 'published',
-    readingMinutes: 5,
-    viewsCount: 980,
-    publishedAt: '2026-03-22T14:30:00.000Z',
-    createdAt: '2026-03-21T14:00:00.000Z',
-    updatedAt: '2026-03-22T14:30:00.000Z',
-    seoScore: 89,
-    relatedPostIds: ['post-1'],
-  },
-  {
-    id: 'post-3',
-    slug: 'data-privacy-during-phone-repair',
-    titleAr: 'كيف تضمن سرية بياناتك وصورك أثناء صيانة الهاتف أمام منزلك؟',
-    titleEn: 'How to Ensure Complete Data Privacy During At-Home Phone Repair',
-    excerptAr: 'تخاف من تسريب صورك أو محادثاتك أثناء ترك هاتفك في ورشة الصيانة؟ تعرف كيف تمنحك الصيانة المنزلية راحة البال الكاملة.',
-    excerptEn: 'Worried about your private photos and chats during phone repair? Learn why on-site repair offers 100% security.',
-    contentHtml: `
-      <h2>المعضلة الكبرى: ترك الهاتف في الورش التقليدية</h2>
-      <p>يتعرض الآلاف سنويًا لخطر سرقة البيانات والصور الخاصة عند تسليم الهواتف لورش مجهولة بدون رقابة أو معرفة بالرمز السري.</p>
-
-      <h2>مزايا خدمة FocusFix في الحفاظ على الخصوصية</h2>
-      <ul>
-        <li>لا نطلب أبدًا كلمة المرور أو رمز القفل (Passcode) الخاص بك.</li>
-        <li>تتم جميع مراحل الصيانة أمام عينيك مباشرة داخل بيتك أو في سيارة الخدمة.</li>
-        <li>فحص الوظائف الأساسية يتم بوجود العميل دون الدخول للتطبيقات الشخصية.</li>
-      </ul>
-    `,
-    categoryId: 'cat-1',
-    category: initialCategories[0],
-    authorId: 'auth-2',
-    author: initialAuthors[1],
-    tags: [initialTags[4], initialTags[5]],
-    featuredImage: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=1200&q=80',
-    featuredImageAlt: 'حماية بيانات الهاتف المحمول وأمان المعلومات',
-    featuredImageCaption: 'أمان بياناتك وخصوصيتك خط أحمر مع FocusFix',
-    focusKeyword: 'سرية بيانات صيانة الهاتف',
-    seoTitle: 'كيف تضمن سرية بياناتك وصورك أثناء صيانة الهاتف؟ | FocusFix',
-    seoDesc: 'دليل حماية الخصوصية ومزايا الصيانة المنزلية المعتمدة التي تضمن بقاء صورك ومحادثاتك في أمان تام.',
-    canonicalUrl: 'https://focusfix.net/blog/data-privacy-during-phone-repair',
-    robotsIndex: true,
-    robotsFollow: true,
-    status: 'draft',
-    readingMinutes: 3,
-    viewsCount: 0,
-    publishedAt: null,
-    createdAt: '2026-03-28T09:15:00.000Z',
-    updatedAt: '2026-03-28T09:15:00.000Z',
-    seoScore: 78,
-  },
-  {
-    id: 'post-4',
-    slug: 'guide-apple-fast-charging-risks',
-    titleAr: 'مخاطر الشواحن التجارية غير الأصلية على آي سي الشحن في الآيفون',
-    titleEn: 'Risks of Counterfeit Chargers on iPhone Tristar/Charging IC',
-    excerptAr: 'احذر من الشواحن الرخيصة التي تسبب تلف رقاقة الشحن وارتفاع حرارة الجهاز المستمر.',
-    excerptEn: 'Beware of cheap adapters causing motherboard charging IC failures and persistent overheating.',
-    contentHtml: `
-      <h2>كيف يعمل نظام إدارة الطاقة في أجهزة آبل؟</h2>
-      <p>تحتوي هواتف آبل على دوائر حماية دقيقة تنظم الجهد الكهربائي وتحمي البطارية من الترددات غير المستقرة.</p>
-    `,
-    categoryId: 'cat-4',
-    category: initialCategories[3],
-    authorId: 'auth-1',
-    author: initialAuthors[0],
-    tags: [initialTags[0], initialTags[3]],
-    featuredImage: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=1200&q=80',
-    featuredImageAlt: 'شاحن وكابل شحن أصلي معتمد من أبل',
-    featuredImageCaption: 'استخدم دائمًا كابلات MFi المعتمدة لحماية هاتفك',
-    focusKeyword: 'مخاطر شواحن الآيفون التجارية',
-    seoTitle: 'مخاطر الشواحن غير الأصلية على آي سي الآيفون | FocusFix',
-    seoDesc: 'أضرار استخدام شواحن غير معتمدة على دوائر الطاقة في هاتف آبل وكيف تحافظ على جهازك.',
-    canonicalUrl: 'https://focusfix.net/blog/guide-apple-fast-charging-risks',
-    robotsIndex: true,
-    robotsFollow: true,
-    status: 'scheduled',
-    readingMinutes: 4,
-    viewsCount: 0,
-    publishedAt: null,
-    scheduledAt: '2026-04-10T12:00:00.000Z',
-    createdAt: '2026-03-29T11:00:00.000Z',
-    updatedAt: '2026-03-29T11:00:00.000Z',
-    seoScore: 82,
-  },
+const initialTags: BlogTag[] = [
+  { id: 'tag-1', nameAr: 'صيانة آيفون 16', nameEn: 'iPhone 16 Repair', slug: 'iphone-16', postCount: 0 },
+  { id: 'tag-2', nameAr: 'شاشة أصلية', nameEn: 'Original Screen', slug: 'original-screen', postCount: 0 },
+  { id: 'tag-3', nameAr: 'صحة البطارية', nameEn: 'Battery Health', slug: 'battery-health', postCount: 0 },
+  { id: 'tag-4', nameAr: 'ضمان سنة', nameEn: '1 Year Warranty', slug: 'warranty', postCount: 0 },
 ];
+
+const initialPosts: BlogPost[] = [];
 
 // Helper to store in localStorage for stateful updates
 const getLocalPosts = (): BlogPost[] => {
   const cached = localStorage.getItem('focusfix_cms_posts');
   if (cached) {
     try {
-      return JSON.parse(cached);
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) return parsed;
     } catch {
       // fallback
     }
   }
-  localStorage.setItem('focusfix_cms_posts', JSON.stringify(initialPosts));
   return initialPosts;
 };
 
@@ -295,12 +93,12 @@ const getLocalCategories = (): BlogCategory[] => {
   const cached = localStorage.getItem('focusfix_cms_categories');
   if (cached) {
     try {
-      return JSON.parse(cached);
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) return parsed;
     } catch {
       // fallback
     }
   }
-  localStorage.setItem('focusfix_cms_categories', JSON.stringify(initialCategories));
   return initialCategories;
 };
 
@@ -312,12 +110,12 @@ const getLocalTags = (): BlogTag[] => {
   const cached = localStorage.getItem('focusfix_cms_tags');
   if (cached) {
     try {
-      return JSON.parse(cached);
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) return parsed;
     } catch {
       // fallback
     }
   }
-  localStorage.setItem('focusfix_cms_tags', JSON.stringify(initialTags));
   return initialTags;
 };
 
@@ -329,12 +127,12 @@ const getLocalAuthors = (): BlogAuthor[] => {
   const cached = localStorage.getItem('focusfix_cms_authors');
   if (cached) {
     try {
-      return JSON.parse(cached);
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) return parsed;
     } catch {
       // fallback
     }
   }
-  localStorage.setItem('focusfix_cms_authors', JSON.stringify(initialAuthors));
   return initialAuthors;
 };
 
@@ -358,7 +156,7 @@ export const blogApi = {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data && Array.isArray(data.posts) && data.posts.length > 0) {
+        if (data && Array.isArray(data.posts)) {
           // Map backend snake_case to frontend BlogPost camelCase
           const mappedPosts: BlogPost[] = data.posts.map((p: any) => ({
             id: p.id,
@@ -392,6 +190,10 @@ export const blogApi = {
             updatedAt: p.updated_at,
             seoScore: 85,
           }));
+
+          // Clear local fallback cache to prevent ghost articles
+          localStorage.removeItem('focusfix_cms_posts');
+
           return {
             posts: mappedPosts,
             counts: data.counts || {
@@ -404,8 +206,8 @@ export const blogApi = {
           };
         }
       }
-    } catch {
-      // Fallback to local store
+    } catch (err) {
+      console.error('Failed to load posts from server:', err);
     }
 
     let list = getLocalPosts();
@@ -489,7 +291,106 @@ export const blogApi = {
   },
 
   async createPost(postData: Partial<BlogPost>): Promise<BlogPost> {
-    try {
+    // Resolve Category ID to real UUID if needed
+    let validCatId = postData.categoryId;
+    if (validCatId && !isUuid(validCatId)) {
+      try {
+        const liveCats = await blogApi.getCategories();
+        const found = liveCats.find((c) => c.id === validCatId || c.slug === validCatId || c.nameAr === validCatId);
+        validCatId = found && isUuid(found.id) ? found.id : undefined;
+      } catch {
+        validCatId = undefined;
+      }
+    }
+
+    // Resolve Author ID to real UUID if needed
+    let validAuthId = postData.authorId;
+    if (validAuthId && !isUuid(validAuthId)) {
+      try {
+        const liveAuthors = await blogApi.getAuthors();
+        const found = liveAuthors.find((a) => a.id === validAuthId || a.slug === validAuthId || a.nameAr === validAuthId);
+        validAuthId = found && isUuid(found.id) ? found.id : undefined;
+      } catch {
+        validAuthId = undefined;
+      }
+    }
+
+    const payload = {
+      title_ar: postData.titleAr,
+      title_en: postData.titleEn || postData.titleAr,
+      slug: postData.slug,
+      content_html: postData.contentHtml || '',
+      content_html_en: postData.contentHtmlEn || '',
+      excerpt_ar: postData.excerptAr,
+      excerpt_en: postData.excerptEn,
+      category_id: validCatId || null,
+      author_id: validAuthId || null,
+      featured_image: postData.featuredImage,
+      featured_image_alt: postData.featuredImageAlt,
+      featured_image_caption: postData.featuredImageCaption,
+      focus_keyword: postData.focusKeyword,
+      meta_title_ar: postData.seoTitle,
+      meta_desc_ar: postData.seoDesc,
+      canonical_url: postData.canonicalUrl,
+      robots_index: postData.robotsIndex,
+      robots_follow: postData.robotsFollow,
+      status: postData.status || 'draft',
+      scheduled_at: postData.scheduledAt,
+      tags: postData.tags?.map((t) => t.id),
+    };
+
+    const res = await fetch(`${API_BASE_URL}/admin/posts`, {
+      method: 'POST',
+      headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || `فشل في إنشاء المقال (كود: ${res.status})`);
+    }
+
+    const created = await res.json();
+    return {
+      ...postData,
+      id: created.id,
+      slug: created.slug,
+      titleAr: created.title_ar,
+      titleEn: created.title_en,
+      status: created.status,
+      createdAt: created.created_at,
+      updatedAt: created.updated_at,
+    } as BlogPost;
+  },
+
+  async updatePost(id: string, postData: Partial<BlogPost>): Promise<BlogPost> {
+    const isRealUuid = isUuid(id);
+
+    // Resolve Category ID to real UUID if needed
+    let validCatId = postData.categoryId;
+    if (validCatId && !isUuid(validCatId)) {
+      try {
+        const liveCats = await blogApi.getCategories();
+        const found = liveCats.find((c) => c.id === validCatId || c.slug === validCatId || c.nameAr === validCatId);
+        validCatId = found && isUuid(found.id) ? found.id : undefined;
+      } catch {
+        validCatId = undefined;
+      }
+    }
+
+    // Resolve Author ID to real UUID if needed
+    let validAuthId = postData.authorId;
+    if (validAuthId && !isUuid(validAuthId)) {
+      try {
+        const liveAuthors = await blogApi.getAuthors();
+        const found = liveAuthors.find((a) => a.id === validAuthId || a.slug === validAuthId || a.nameAr === validAuthId);
+        validAuthId = found && isUuid(found.id) ? found.id : undefined;
+      } catch {
+        validAuthId = undefined;
+      }
+    }
+
+    if (isRealUuid) {
       const payload = {
         title_ar: postData.titleAr,
         title_en: postData.titleEn,
@@ -498,8 +399,8 @@ export const blogApi = {
         content_html_en: postData.contentHtmlEn,
         excerpt_ar: postData.excerptAr,
         excerpt_en: postData.excerptEn,
-        category_id: postData.categoryId,
-        author_id: postData.authorId,
+        category_id: validCatId !== undefined ? validCatId : undefined,
+        author_id: validAuthId !== undefined ? validAuthId : undefined,
         featured_image: postData.featuredImage,
         featured_image_alt: postData.featuredImageAlt,
         featured_image_caption: postData.featuredImageCaption,
@@ -514,116 +415,37 @@ export const blogApi = {
         tags: postData.tags?.map((t) => t.id),
       };
 
-      const res = await fetch(`${API_BASE_URL}/admin/posts`, {
-        method: 'POST',
+      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}`, {
+        method: 'PUT',
         headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        const created = await res.json();
-        const postObj: BlogPost = {
-          ...postData,
-          id: created.id,
-          slug: created.slug,
-          titleAr: created.title_ar,
-          titleEn: created.title_en,
-          status: created.status,
-          createdAt: created.created_at,
-          updatedAt: created.updated_at,
-        } as BlogPost;
-        const local = getLocalPosts();
-        local.unshift(postObj);
-        saveLocalPosts(local);
-        return postObj;
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `فشل في تحديث المقال (كود: ${res.status})`);
       }
-    } catch {
-      // Fallback
-    }
 
-    const posts = getLocalPosts();
-    const categories = getLocalCategories();
-    const authors = getLocalAuthors();
-
-    const category = categories.find((c) => c.id === postData.categoryId);
-    const author = authors.find((a) => a.id === postData.authorId);
-
-    const newPost: BlogPost = {
-      id: `post-${Date.now()}`,
-      slug: postData.slug || `post-${Date.now()}`,
-      titleAr: postData.titleAr || '',
-      titleEn: postData.titleEn || postData.titleAr || '',
-      contentHtml: postData.contentHtml || '',
-      contentHtmlEn: postData.contentHtmlEn || '',
-      excerptAr: postData.excerptAr || '',
-      excerptEn: postData.excerptEn || '',
-      categoryId: postData.categoryId || (categories[0]?.id ?? ''),
-      category,
-      authorId: postData.authorId || (authors[0]?.id ?? ''),
-      author,
-      tags: postData.tags || [],
-      featuredImage: postData.featuredImage || 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=1200&q=80',
-      featuredImageAlt: postData.featuredImageAlt,
-      featuredImageCaption: postData.featuredImageCaption,
-      focusKeyword: postData.focusKeyword,
-      seoTitle: postData.seoTitle,
-      seoDesc: postData.seoDesc,
-      canonicalUrl: postData.canonicalUrl,
-      robotsIndex: postData.robotsIndex ?? true,
-      robotsFollow: postData.robotsFollow ?? true,
-      status: postData.status || 'draft',
-      readingMinutes: 4,
-      viewsCount: 0,
-      publishedAt: postData.status === 'published' ? new Date().toISOString() : null,
-      scheduledAt: postData.status === 'scheduled' ? postData.scheduledAt : null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      seoScore: postData.seoScore || 85,
-      relatedPostIds: postData.relatedPostIds,
-    };
-
-    posts.unshift(newPost);
-    saveLocalPosts(posts);
-    return newPost;
-  },
-
-  async updatePost(id: string, postData: Partial<BlogPost>): Promise<BlogPost> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(postData),
-      });
-      if (res.ok) return await res.json();
-    } catch {
-      // Fallback
+      const updated = await res.json();
+      return {
+        ...postData,
+        id: updated.id,
+        slug: updated.slug,
+        titleAr: updated.title_ar,
+        titleEn: updated.title_en,
+        status: updated.status,
+        updatedAt: updated.updated_at,
+      } as BlogPost;
     }
 
     const posts = getLocalPosts();
     const index = posts.findIndex((p) => p.id === id);
     if (index === -1) throw new Error('Article not found');
 
-    const categories = getLocalCategories();
-    const authors = getLocalAuthors();
-
-    const category = postData.categoryId
-      ? categories.find((c) => c.id === postData.categoryId)
-      : posts[index].category;
-
-    const author = postData.authorId
-      ? authors.find((a) => a.id === postData.authorId)
-      : posts[index].author;
-
     posts[index] = {
       ...posts[index],
       ...postData,
-      category,
-      author,
       updatedAt: new Date().toISOString(),
-      publishedAt:
-        postData.status === 'published' && !posts[index].publishedAt
-          ? new Date().toISOString()
-          : posts[index].publishedAt,
     };
 
     saveLocalPosts(posts);
@@ -631,14 +453,14 @@ export const blogApi = {
   },
 
   async duplicatePost(id: string): Promise<BlogPost> {
-    try {
+    if (isUuid(id)) {
       const res = await fetch(`${API_BASE_URL}/admin/posts/${id}/duplicate`, {
         method: 'POST',
-        credentials: 'include',
+        headers: getAdminAuthHeaders(),
       });
-      if (res.ok) return await res.json();
-    } catch {
-      // Fallback
+      if (res.ok) {
+        return await res.json();
+      }
     }
 
     const posts = getLocalPosts();
@@ -665,30 +487,30 @@ export const blogApi = {
   },
 
   async moveToTrash(id: string): Promise<void> {
-    try {
-      await fetch(`${API_BASE_URL}/admin/posts/${id}/trash`, {
+    if (isUuid(id)) {
+      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}/trash`, {
         method: 'PATCH',
         headers: getAdminAuthHeaders(),
       });
-    } catch {
-      // Fallback
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to move to trash');
+      }
     }
-    const posts = getLocalPosts();
-    const post = posts.find((p) => p.id === id);
-    if (post) {
-      post.status = 'archived';
-      saveLocalPosts(posts);
-    }
+    const posts = getLocalPosts().filter((p) => p.id !== id);
+    saveLocalPosts(posts);
   },
 
   async restoreFromTrash(id: string): Promise<void> {
-    try {
-      await fetch(`${API_BASE_URL}/admin/posts/${id}/restore`, {
+    if (isUuid(id)) {
+      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}/restore`, {
         method: 'PATCH',
         headers: getAdminAuthHeaders(),
       });
-    } catch {
-      // Fallback
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to restore post');
+      }
     }
     const posts = getLocalPosts();
     const post = posts.find((p) => p.id === id);
@@ -699,58 +521,61 @@ export const blogApi = {
   },
 
   async permanentlyDelete(id: string): Promise<void> {
-    try {
-      await fetch(`${API_BASE_URL}/admin/posts/${id}`, {
+    if (isUuid(id)) {
+      const res = await fetch(`${API_BASE_URL}/admin/posts/${id}`, {
         method: 'DELETE',
         headers: getAdminAuthHeaders(),
       });
-    } catch {
-      // Fallback
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to delete post');
+      }
     }
     const posts = getLocalPosts().filter((p) => p.id !== id);
     saveLocalPosts(posts);
   },
 
   async bulkAction(ids: string[], action: 'trash' | 'restore' | 'delete' | 'publish' | 'draft'): Promise<void> {
-    try {
+    const realUuids = ids.filter((id) => isUuid(id));
+    if (realUuids.length > 0) {
       await fetch(`${API_BASE_URL}/admin/bulk`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          ids,
+          ids: realUuids,
           action: action === 'delete' ? 'delete' : action === 'trash' ? 'trash' : 'change_status',
           value: action === 'publish' ? 'published' : action === 'draft' || action === 'restore' ? 'draft' : undefined,
         }),
       });
-    } catch {
-      // Fallback
     }
 
-    const posts = getLocalPosts();
-    if (action === 'delete') {
-      const remaining = posts.filter((p) => !ids.includes(p.id));
-      saveLocalPosts(remaining);
-    } else {
-      posts.forEach((p) => {
-        if (ids.includes(p.id)) {
-          if (action === 'trash') p.status = 'archived';
-          else if (action === 'restore') p.status = 'draft';
-          else if (action === 'publish') {
-            p.status = 'published';
-            if (!p.publishedAt) p.publishedAt = new Date().toISOString();
-          } else if (action === 'draft') p.status = 'draft';
-        }
-      });
-      saveLocalPosts(posts);
-    }
+    const posts = getLocalPosts().filter((p) => !ids.includes(p.id));
+    saveLocalPosts(posts);
   },
 
   // 2. Categories CRUD
   async getCategories(): Promise<BlogCategory[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/categories`, { credentials: 'include' });
-      if (res.ok) return await res.json();
+      const res = await fetch(`${API_BASE_URL}/admin/categories`, {
+        headers: getAdminAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: BlogCategory[] = data.map((c: any) => ({
+            id: c.id,
+            nameAr: c.name_ar,
+            nameEn: c.name_en || c.name_ar,
+            slug: c.slug,
+            descriptionAr: c.description_ar,
+            descriptionEn: c.description_en,
+            parentId: c.parent_id,
+            postCount: c._count?.posts || 0,
+          }));
+          saveLocalCategories(mapped);
+          return mapped;
+        }
+      }
     } catch {
       // Fallback
     }
@@ -761,11 +586,33 @@ export const blogApi = {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/categories`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(cat),
+        headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          name_ar: cat.nameAr,
+          name_en: cat.nameEn || cat.nameAr,
+          slug: cat.slug || cat.nameEn?.toLowerCase().replace(/\s+/g, '-') || `category-${Date.now()}`,
+          description_ar: cat.descriptionAr,
+          description_en: cat.descriptionEn,
+          parent_id: cat.parentId || null,
+        }),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const created = await res.json();
+        const obj: BlogCategory = {
+          id: created.id,
+          nameAr: created.name_ar,
+          nameEn: created.name_en,
+          slug: created.slug,
+          descriptionAr: created.description_ar,
+          descriptionEn: created.description_en,
+          parentId: created.parent_id,
+          postCount: 0,
+        };
+        const local = getLocalCategories();
+        local.push(obj);
+        saveLocalCategories(local);
+        return obj;
+      }
     } catch {
       // Fallback
     }
@@ -787,10 +634,11 @@ export const blogApi = {
   },
 
   async deleteCategory(id: string): Promise<void> {
-    try {
-      await fetch(`${API_BASE_URL}/admin/categories/${id}`, { method: 'DELETE', credentials: 'include' });
-    } catch {
-      // Fallback
+    if (isUuid(id)) {
+      await fetch(`${API_BASE_URL}/admin/categories/${id}`, {
+        method: 'DELETE',
+        headers: getAdminAuthHeaders(),
+      }).catch(() => {});
     }
     const categories = getLocalCategories().filter((c) => c.id !== id);
     saveLocalCategories(categories);
@@ -800,8 +648,19 @@ export const blogApi = {
   async getTags(query?: string): Promise<BlogTag[]> {
     try {
       const url = query ? `${API_BASE_URL}/admin/tags?q=${encodeURIComponent(query)}` : `${API_BASE_URL}/admin/tags`;
-      const res = await fetch(url, { credentials: 'include' });
-      if (res.ok) return await res.json();
+      const res = await fetch(url, { headers: getAdminAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          return data.map((t: any) => ({
+            id: t.id,
+            nameAr: t.name_ar,
+            nameEn: t.name_en,
+            slug: t.slug,
+            postCount: t._count?.posts || 0,
+          }));
+        }
+      }
     } catch {
       // Fallback
     }
@@ -818,11 +677,19 @@ export const blogApi = {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/tags`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ name_ar: nameAr, name_en: nameEn || nameAr, slug }),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const created = await res.json();
+        return {
+          id: created.id,
+          nameAr: created.name_ar,
+          nameEn: created.name_en,
+          slug: created.slug,
+          postCount: 0,
+        };
+      }
     } catch {
       // Fallback
     }
@@ -846,8 +713,27 @@ export const blogApi = {
   // 4. Authors CRUD
   async getAuthors(): Promise<BlogAuthor[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/authors`, { credentials: 'include' });
-      if (res.ok) return await res.json();
+      const res = await fetch(`${API_BASE_URL}/admin/authors`, {
+        headers: getAdminAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: BlogAuthor[] = data.map((a: any) => ({
+            id: a.id,
+            nameAr: a.name_ar,
+            nameEn: a.name_en || a.name_ar,
+            slug: a.slug,
+            avatarUrl: a.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+            roleTitle: a.role_title || 'كاتب محتوى معتمد',
+            bioAr: a.bio_ar,
+            bioEn: a.bio_en,
+            postCount: a._count?.posts || 0,
+          }));
+          saveLocalAuthors(mapped);
+          return mapped;
+        }
+      }
     } catch {
       // Fallback
     }
@@ -858,11 +744,35 @@ export const blogApi = {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/authors`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(authorData),
+        headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          name_ar: authorData.nameAr,
+          name_en: authorData.nameEn || authorData.nameAr,
+          slug: authorData.slug || `author-${Date.now()}`,
+          avatar_url: authorData.avatarUrl,
+          role_title: authorData.roleTitle,
+          bio_ar: authorData.bioAr,
+          bio_en: authorData.bioEn,
+        }),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const created = await res.json();
+        const obj: BlogAuthor = {
+          id: created.id,
+          nameAr: created.name_ar,
+          nameEn: created.name_en,
+          slug: created.slug,
+          avatarUrl: created.avatar_url || '',
+          roleTitle: created.role_title,
+          bioAr: created.bio_ar,
+          bioEn: created.bio_en,
+          postCount: 0,
+        };
+        const local = getLocalAuthors();
+        local.push(obj);
+        saveLocalAuthors(local);
+        return obj;
+      }
     } catch {
       // Fallback
     }

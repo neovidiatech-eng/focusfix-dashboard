@@ -20,8 +20,8 @@ export function LoginPage() {
     try {
       // 1. Try real login with backend API
       const response = await api.login(email, password);
-      if (response && response.token) {
-        login(response.token, response.user || {
+      if (response && response.accessToken) {
+        login(response.accessToken, response.user || {
           id: '1',
           name: response.user?.name || 'Super Admin',
           email,
@@ -32,28 +32,7 @@ export function LoginPage() {
       }
     } catch (apiErr: any) {
       console.warn('Backend login attempt returned:', apiErr.message);
-      // 2. Fallback local validation if backend database is not yet seeded
-      if (email === 'admin@focusfix.net' && password === 'Admin@FocusFix2026') {
-        login('dummy_jwt_token_for_preview', {
-          id: '1',
-          name: 'Super Admin',
-          email: 'admin@focusfix.net',
-          role: 'super_admin',
-        });
-        navigate('/overview');
-        return;
-      } else if (password.length >= 6) {
-        login('mock_token_' + Date.now(), {
-          id: '1',
-          name: 'Super Admin',
-          email,
-          role: 'super_admin',
-        });
-        navigate('/overview');
-        return;
-      } else {
-        setError(apiErr.message || 'فشل تسجيل الدخول، تأكد من صحة البيانات.');
-      }
+      setError(apiErr.message || 'فشل تسجيل الدخول، تأكد من صحة البيانات.');
     } finally {
       setIsLoading(false);
     }

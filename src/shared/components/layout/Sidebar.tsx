@@ -16,7 +16,7 @@ interface SidebarProps {
   };
 }
 
-export function Sidebar({ badges = { bookings: 3 } }: SidebarProps) {
+export function Sidebar({ badges = { bookings: 0 } }: SidebarProps) {
   const links = [
     { to: '/overview', label: 'نظرة عامة (KPIs)', icon: LayoutDashboard },
     { to: '/bookings', label: 'الحجوزات', icon: CalendarCheck, badge: badges.bookings },

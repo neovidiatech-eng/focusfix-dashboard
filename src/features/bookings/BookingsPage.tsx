@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   Search,
   Phone,
@@ -35,6 +36,7 @@ interface Booking {
 }
 
 export function BookingsPage() {
+  const outlet = useOutletContext<{ refreshBadges?: () => void }>();
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -102,6 +104,7 @@ export function BookingsPage() {
         )
       );
       setSelectedBooking((prev) => (prev ? { ...prev, status: newStatus, notes: activeNotes } : null));
+      outlet?.refreshBadges?.();
     } catch (err: any) {
       alert(err.message || 'فشل تحديث حالة الحجز في السيرفر');
     } finally {

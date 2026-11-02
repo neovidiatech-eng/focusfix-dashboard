@@ -14,8 +14,10 @@ import {
 } from 'lucide-react';
 import { BlogAuthor } from '../types/blog.types';
 import { blogApi } from '../api/blogApi';
+import { useToast } from '../../../shared/components/ui/Toast';
 
 export function AuthorsManagerPage() {
+  const toast = useToast();
   const [authors, setAuthors] = useState<BlogAuthor[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAuthor, setEditingAuthor] = useState<BlogAuthor | null>(null);
@@ -61,43 +63,26 @@ export function AuthorsManagerPage() {
 
   const handleSave = async () => {
     if (!nameAr.trim()) return;
-
-    if (editingAuthor) {
-      const updated = authors.map((a) =>
-        a.id === editingAuthor.id
-          ? {
-              ...a,
-              nameAr,
-              nameEn: nameEn || nameAr,
-              roleTitle,
-              avatarUrl,
-              bioAr,
-              bioEn,
-            }
-          : a
-      );
-      setAuthors(updated);
-      localStorage.setItem('focusfix_cms_authors', JSON.stringify(updated));
-    } else {
-      await blogApi.createAuthor({
-        nameAr,
-        nameEn: nameEn || nameAr,
-        roleTitle,
-        avatarUrl,
-        bioAr,
-        bioEn,
-      });
+    const payload = { nameAr, nameEn: nameEn || nameAr, roleTitle, avatarUrl, bioAr, bioEn };
+    try {
+      if (editingAuthor) await blogApi.updateAuthor(editingAuthor.id, payload);
+      else await blogApi.createAuthor(payload);
+      toast.success(editingAuthor ? 'تم تحديث الكاتب' : 'تمت إضافة الكاتب');
       await loadAuthors();
+      setIsModalOpen(false);
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر حفظ الكاتب');
     }
-
-    setIsModalOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا الكاتب؟')) {
-      const remaining = authors.filter((a) => a.id !== id);
-      setAuthors(remaining);
-      localStorage.setItem('focusfix_cms_authors', JSON.stringify(remaining));
+    if (!confirm('هل أنت متأكد من حذف هذا الكاتب؟')) return;
+    try {
+      await blogApi.deleteAuthor(id);
+      toast.success('تم حذف الكاتب');
+      await loadAuthors();
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر حذف الكاتب');
     }
   };
 

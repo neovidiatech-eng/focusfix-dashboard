@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { useToast } from '../../shared/components/ui/Toast';
 import { Save, Phone, Globe, Shield, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 export function SettingsPage() {
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -12,7 +14,8 @@ export function SettingsPage() {
   const [whatsapp, setWhatsapp] = useState('201009911934');
   const [domain, setDomain] = useState('https://focusfix.net');
   const [supportEmail, setSupportEmail] = useState('support@focusfix.net');
-  const [workingHoursMode, setWorkingHoursMode] = useState('12h');
+  const [bookingDaysAhead, setBookingDaysAhead] = useState('7');
+  const [alertEmails, setAlertEmails] = useState('');
   const [workingHoursStart, setWorkingHoursStart] = useState('10:00');
   const [workingHoursEnd, setWorkingHoursEnd] = useState('18:00');
   const [slotCapacity, setSlotCapacity] = useState('3');
@@ -38,7 +41,8 @@ export function SettingsPage() {
         if (map.whatsapp) setWhatsapp(map.whatsapp);
         if (map.domain) setDomain(map.domain);
         if (map.supportEmail) setSupportEmail(map.supportEmail);
-        if (map.working_hours_mode) setWorkingHoursMode(map.working_hours_mode);
+        if (map.booking_days_ahead) setBookingDaysAhead(map.booking_days_ahead);
+        if (map.admin_alert_emails !== undefined) setAlertEmails(map.admin_alert_emails);
         if (map.working_hours_start) setWorkingHoursStart(map.working_hours_start);
         if (map.working_hours_end) setWorkingHoursEnd(map.working_hours_end);
         if (map.slot_capacity) setSlotCapacity(map.slot_capacity);
@@ -55,8 +59,8 @@ export function SettingsPage() {
           else setBannerColorTheme('amber');
         }
       }
-    } catch (err) {
-      console.error('Failed to load settings:', err);
+    } catch (err: any) {
+      toast.error(err.message || 'تعذر تحميل الإعدادات');
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +85,8 @@ export function SettingsPage() {
       { key: 'whatsapp', value: whatsapp },
       { key: 'domain', value: domain },
       { key: 'supportEmail', value: supportEmail },
-      { key: 'working_hours_mode', value: workingHoursMode },
+      { key: 'booking_days_ahead', value: String(Math.min(30, Math.max(1, Number(bookingDaysAhead) || 7))) },
+      { key: 'admin_alert_emails', value: alertEmails.trim() },
       { key: 'working_hours_start', value: workingHoursStart },
       { key: 'working_hours_end', value: workingHoursEnd },
       { key: 'slot_capacity', value: slotCapacity },
@@ -97,10 +102,10 @@ export function SettingsPage() {
     try {
       await api.updateSettings(updates);
       setSaveSuccess(true);
+      toast.success('تم حفظ الإعدادات وتحديث الموقع');
       setTimeout(() => setSaveSuccess(false), 4000);
-    } catch (err) {
-      console.error('Failed to update settings:', err);
-      alert('حدث خطأ أثناء حفظ الإعدادات، يرجى المحاولة لاحقاً');
+    } catch (err: any) {
+      toast.error(err.message || 'حدث خطأ أثناء حفظ الإعدادات');
     } finally {
       setIsSaving(false);
     }
@@ -112,7 +117,7 @@ export function SettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">المحتوى والإعدادات العامة</h1>
           <p className="text-sm text-slate-500 mt-1">
-            إعدادات المنصة المباشرة، أرقام التواصل، ساعات العمل، وشريط الإعلانات العلوي
+            إعدادات المنصة المباشرة، أرقام التواصل، قواعد الحجز، وشريط الإعلانات العلوي
           </p>
         </div>
 
@@ -193,32 +198,27 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* Working Hours & Slot Capacity */}
+          {/* Booking rules */}
           <div className="pt-4 border-t border-slate-100 space-y-4">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Globe className="w-4 h-4 text-emerald-600" />
-              <span>ساعات العمل ومواعيد استقبال الحجوزات</span>
+              <span>الحجز والتنبيهات</span>
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  نظام ساعات العمل
-                </label>
-                <select
-                  value={workingHoursMode}
-                  onChange={(e) => setWorkingHoursMode(e.target.value)}
+                <label className="block text-xs font-semibold text-slate-700 mb-1">عدد الأيام المتاحة للحجز مقدماً</label>
+                <input
+                  type="number"
+                  value={bookingDaysAhead}
+                  onChange={(e) => setBookingDaysAhead(e.target.value)}
+                  min={1}
+                  max={30}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="24h">خدمة على مدار 24 ساعة (24h)</option>
-                  <option value="12h">خدمة 12 ساعة (من 10:00 ص إلى 10:00 م)</option>
-                  <option value="8h">خدمة 8 ساعات (من 10:00 ص إلى 06:00 م)</option>
-                  <option value="custom">مخصص (تحديد الساعات يدوياً)</option>
-                </select>
+                />
+                <p className="text-[11px] text-slate-400 mt-1">عدد الأيام التي يظهرها الموقع للعميل عند اختيار الموعد</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  سعة الحجوزات القصوى لكل فترة (Slot Capacity)
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">السعة الافتراضية للمناطق الجديدة</label>
                 <input
                   type="number"
                   value={slotCapacity}
@@ -227,11 +227,10 @@ export function SettingsPage() {
                   max={20}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
+                <p className="text-[11px] text-slate-400 mt-1">عدد الحجوزات لكل فترة عند إضافة منطقة. عدّل كل منطقة من صفحة المناطق.</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  من الساعة
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">ساعات العمل المعروضة — من</label>
                 <input
                   type="time"
                   value={workingHoursStart}
@@ -240,15 +239,25 @@ export function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  إلى الساعة
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">إلى</label>
                 <input
                   type="time"
                   value={workingHoursEnd}
                   onChange={(e) => setWorkingHoursEnd(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">إيميلات تنبيه الحجوزات الجديدة (مفصولة بفاصلة)</label>
+                <input
+                  type="text"
+                  dir="ltr"
+                  value={alertEmails}
+                  onChange={(e) => setAlertEmails(e.target.value)}
+                  placeholder="admin@focusfix.net, ops@focusfix.net"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">يصل لهذه العناوين إيميل عند كل حجز جديد (يتطلب ضبط RESEND_API_KEY على السيرفر)</p>
               </div>
             </div>
           </div>

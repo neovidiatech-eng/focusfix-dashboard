@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, Smartphone, Wrench, Edit, Trash2, X, Save, RefreshCw, Layers } from 'lucide-react';
+import { Plus, Smartphone, Wrench, Edit, Trash2, X, Save, RefreshCw, Layers, Eye, EyeOff } from 'lucide-react';
 import { api } from '../../lib/api';
+import { useToast } from '../../shared/components/ui/Toast';
 
 interface DeviceType {
   id: string;
@@ -19,6 +20,8 @@ interface DeviceModel {
   typeId: string;
   typeName?: string;
   year: number;
+  isActive: boolean;
+  bookingsCount: number;
 }
 
 interface ServiceItem {
@@ -28,9 +31,12 @@ interface ServiceItem {
   slug: string;
   estimatedMinutes: number;
   iconName: string;
+  isActive: boolean;
+  bookingsCount: number;
 }
 
 export function CatalogPage() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'models' | 'services'>('models');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
@@ -62,51 +68,38 @@ export function CatalogPage() {
   const fetchCatalog = async () => {
     setIsLoading(true);
     try {
-      const [typesRes, modelsRes, servicesRes] = await Promise.allSettled([
-        api.getDeviceTypes(),
-        api.getModels(''), // Fetch all models across all types
-        api.getServices(),
-      ]);
-
-      let typesList: DeviceType[] = [];
-      if (typesRes.status === 'fulfilled' && Array.isArray(typesRes.value)) {
-        typesList = typesRes.value;
-        setDeviceTypes(typesList);
-      }
-
-      if (modelsRes.status === 'fulfilled' && Array.isArray(modelsRes.value)) {
-        setModels(
-          modelsRes.value.map((m: any) => {
-            const foundType = typesList.find((t) => t.id === m.type_id || t.slug === m.type?.slug);
-            return {
-              id: m.id,
-              nameAr: m.name,
-              nameEn: m.name,
-              slug: m.slug,
-              seriesAr: m.series_ar || m.series_en || 'سلسلة الأجهزة',
-              seriesEn: m.series_en || 'Device Series',
-              typeId: m.type_id || '',
-              typeName: foundType?.name_ar || m.type?.name_ar || 'آيفون',
-              year: m.release_year || 2024,
-            };
-          })
-        );
-      }
-
-      if (servicesRes.status === 'fulfilled' && Array.isArray(servicesRes.value)) {
-        setServices(
-          servicesRes.value.map((s: any) => ({
-            id: s.id,
-            nameAr: s.name_ar,
-            nameEn: s.name_en || s.name_ar,
-            slug: s.slug,
-            estimatedMinutes: s.estimated_minutes || 25,
-            iconName: s.icon || 'Wrench',
-          }))
-        );
-      }
-    } catch (err) {
-      console.error('Failed to load catalog from server:', err);
+      const catalog = await api.getAdminCatalog();
+      const typesList: DeviceType[] = catalog.deviceTypes || [];
+      setDeviceTypes(typesList);
+      setModels(
+        (catalog.models || []).map((m: any) => ({
+          id: m.id,
+          nameAr: m.name,
+          nameEn: m.name,
+          slug: m.slug,
+          seriesAr: m.series_ar || '',
+          seriesEn: m.series_en || '',
+          typeId: m.type_id || '',
+          typeName: m.type?.name_ar || typesList.find((t) => t.id === m.type_id)?.name_ar,
+          year: m.release_year || new Date().getFullYear(),
+          isActive: m.is_active,
+          bookingsCount: m._count?.bookings || 0,
+        }))
+      );
+      setServices(
+        (catalog.services || []).map((s: any) => ({
+          id: s.id,
+          nameAr: s.name_ar,
+          nameEn: s.name_en || s.name_ar,
+          slug: s.slug,
+          estimatedMinutes: s.estimated_minutes || 30,
+          iconName: s.icon || 'Wrench',
+          isActive: s.is_active,
+          bookingsCount: s._count?.booking_services || 0,
+        }))
+      );
+    } catch (err: any) {
+      toast.error(err.message || 'تعذر تحميل الكتالوج');
     } finally {
       setIsLoading(false);
     }
@@ -159,22 +152,47 @@ export function CatalogPage() {
         await api.createModel(payload);
       }
 
+      toast.success(editingModel ? 'تم تحديث الموديل' : 'تمت إضافة الموديل — أضف أسعاره من مصفوفة الأسعار');
       await fetchCatalog();
       setIsModelModalOpen(false);
     } catch (err: any) {
-      alert(err.message || 'فشل حفظ الموديل');
+      toast.error(err.message || 'فشل حفظ الموديل');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDeleteModel = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا الموديل؟ سيتم حذف جميع أسعاره المسجلة.')) return;
+  const handleDeleteModel = async (m: DeviceModel) => {
+    const msg = m.bookingsCount
+      ? `هذا الموديل عليه ${m.bookingsCount} حجز، لذلك سيتم إخفاؤه من الموقع بدلاً من حذفه. متابعة؟`
+      : 'هل أنت متأكد من حذف هذا الموديل؟ سيتم حذف جميع أسعاره المسجلة.';
+    if (!confirm(msg)) return;
     try {
-      await api.deleteModel(id);
+      const res = await api.deleteModel(m.id);
+      toast.success(res.deactivated ? 'تم إخفاء الموديل من الموقع' : 'تم حذف الموديل');
       await fetchCatalog();
     } catch (err: any) {
-      alert(err.message || 'فشل حذف الموديل');
+      toast.error(err.message || 'فشل حذف الموديل');
+    }
+  };
+
+  const toggleModel = async (m: DeviceModel) => {
+    try {
+      await api.updateModel(m.id, { is_active: !m.isActive });
+      toast.success(m.isActive ? 'تم إخفاء الموديل من الموقع' : 'تم إظهار الموديل على الموقع');
+      await fetchCatalog();
+    } catch (err: any) {
+      toast.error(err.message || 'تعذر التحديث');
+    }
+  };
+
+  const toggleService = async (svc: ServiceItem) => {
+    try {
+      await api.updateService(svc.id, { is_active: !svc.isActive });
+      toast.success(svc.isActive ? 'تم إخفاء الخدمة من الموقع' : 'تم إظهار الخدمة على الموقع');
+      await fetchCatalog();
+    } catch (err: any) {
+      toast.error(err.message || 'تعذر التحديث');
     }
   };
 
@@ -207,25 +225,32 @@ export function CatalogPage() {
         estimated_minutes: Number(serviceMinutes),
       };
 
-      if (!editingService) {
+      if (editingService) {
+        await api.updateService(editingService.id, payload);
+      } else {
         await api.createService(payload);
       }
+      toast.success(editingService ? 'تم تحديث الخدمة' : 'تمت إضافة الخدمة');
       await fetchCatalog();
       setIsServiceModalOpen(false);
     } catch (err: any) {
-      alert(err.message || 'فشل حفظ الخدمة');
+      toast.error(err.message || 'فشل حفظ الخدمة');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDeleteService = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذه الخدمة؟')) return;
+  const handleDeleteService = async (svc: ServiceItem) => {
+    const msg = svc.bookingsCount
+      ? `هذه الخدمة مستخدمة في ${svc.bookingsCount} حجز، لذلك سيتم إخفاؤها بدلاً من حذفها. متابعة؟`
+      : 'هل أنت متأكد من حذف هذه الخدمة وكل أسعارها؟';
+    if (!confirm(msg)) return;
     try {
-      await api.deleteService(id);
+      const res = await api.deleteService(svc.id);
+      toast.success(res.deactivated ? 'تم إخفاء الخدمة من الموقع' : 'تم حذف الخدمة');
       await fetchCatalog();
     } catch (err: any) {
-      alert(err.message || 'فشل حذف الخدمة');
+      toast.error(err.message || 'فشل حذف الخدمة');
     }
   };
 
@@ -362,8 +387,11 @@ export function CatalogPage() {
                 </tr>
               ) : (
                 filteredModels.map((m) => (
-                  <tr key={m.id} className="hover:bg-slate-50">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">{m.nameAr}</td>
+                  <tr key={m.id} className={`hover:bg-slate-50 ${m.isActive ? '' : 'opacity-60'}`}>
+                    <td className="py-3.5 px-4 font-bold text-slate-900">
+                      {m.nameAr}
+                      {!m.isActive && <span className="mr-2 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">مخفي</span>}
+                    </td>
                     <td className="py-3.5 px-4">
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         {m.typeName || 'جهاز'}
@@ -375,6 +403,13 @@ export function CatalogPage() {
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
+                          onClick={() => toggleModel(m)}
+                          className="p-1.5 text-slate-600 hover:text-slate-900 rounded hover:bg-slate-100"
+                          title={m.isActive ? 'إخفاء من الموقع' : 'إظهار على الموقع'}
+                        >
+                          {m.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </button>
+                        <button
                           onClick={() => handleOpenEditModel(m)}
                           className="p-1.5 text-slate-600 hover:text-slate-900 rounded hover:bg-slate-100"
                           title="تعديل"
@@ -382,7 +417,7 @@ export function CatalogPage() {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteModel(m.id)}
+                          onClick={() => handleDeleteModel(m)}
                           className="p-1.5 text-rose-500 hover:text-rose-700 rounded hover:bg-rose-50"
                           title="حذف"
                         >
@@ -413,13 +448,23 @@ export function CatalogPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {services.map((s) => (
-                <tr key={s.id} className="hover:bg-slate-50">
-                  <td className="py-3.5 px-4 font-bold text-slate-900">{s.nameAr}</td>
+                <tr key={s.id} className={`hover:bg-slate-50 ${s.isActive ? '' : 'opacity-60'}`}>
+                  <td className="py-3.5 px-4 font-bold text-slate-900">
+                    {s.nameAr}
+                    {!s.isActive && <span className="mr-2 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">مخفية</span>}
+                  </td>
                   <td className="py-3.5 px-4 font-medium text-slate-800">{s.nameEn}</td>
                   <td className="py-3.5 px-4 font-mono text-xs text-slate-500">{s.slug}</td>
                   <td className="py-3.5 px-4 text-slate-700 font-semibold">{s.estimatedMinutes} دقيقة</td>
                   <td className="py-3.5 px-4 text-center">
                     <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => toggleService(s)}
+                        className="p-1.5 text-slate-600 hover:text-slate-900 rounded hover:bg-slate-100"
+                        title={s.isActive ? 'إخفاء من الموقع' : 'إظهار على الموقع'}
+                      >
+                        {s.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      </button>
                       <button
                         onClick={() => handleOpenEditService(s)}
                         className="p-1.5 text-slate-600 hover:text-slate-900 rounded hover:bg-slate-100"
@@ -428,7 +473,7 @@ export function CatalogPage() {
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteService(s.id)}
+                        onClick={() => handleDeleteService(s)}
                         className="p-1.5 text-rose-500 hover:text-rose-700 rounded hover:bg-rose-50"
                         title="حذف"
                       >

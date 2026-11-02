@@ -14,9 +14,11 @@ interface SidebarProps {
   badges?: {
     bookings: number;
   };
+  mobileOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ badges = { bookings: 0 } }: SidebarProps) {
+export function Sidebar({ badges = { bookings: 0 }, mobileOpen = false, onClose }: SidebarProps) {
   const links = [
     { to: '/overview', label: 'نظرة عامة (KPIs)', icon: LayoutDashboard },
     { to: '/bookings', label: 'الحجوزات', icon: CalendarCheck, badge: badges.bookings },
@@ -29,7 +31,14 @@ export function Sidebar({ badges = { bookings: 0 } }: SidebarProps) {
   ];
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col flex-shrink-0 h-screen sticky top-0 border-l border-slate-800">
+    <>
+    {/* Mobile backdrop */}
+    {mobileOpen && <div className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden" onClick={onClose} />}
+    <aside
+      className={`w-64 bg-slate-900 text-slate-100 flex flex-col flex-shrink-0 h-screen border-l border-slate-800 fixed lg:sticky top-0 right-0 z-50 transition-transform lg:translate-x-0 ${
+        mobileOpen ? 'translate-x-0' : 'translate-x-full'
+      }`}
+    >
       {/* Brand Header */}
       <div className="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
         <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-bold text-white text-lg">
@@ -142,9 +151,10 @@ export function Sidebar({ badges = { bookings: 0 } }: SidebarProps) {
 
       {/* Footer Info */}
       <div className="p-4 border-t border-slate-800 text-xs text-slate-400">
-        <p className="font-semibold text-slate-300">FocusFix Admin v1.0</p>
+        <p className="font-semibold text-slate-300">FocusFix Admin v1.1</p>
         <p className="mt-1">صيانة Apple المنزلية</p>
       </div>
     </aside>
+    </>
   );
 }

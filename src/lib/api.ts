@@ -1,4 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1';
+
+/** Public website URL (for "view on site" links) */
+export const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://focusfix.net';
 
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('focusfix_admin_token');
@@ -25,6 +28,35 @@ async function authFetch(input: RequestInfo, init?: RequestInit): Promise<Respon
   return res;
 }
 
+/** Authenticated JSON request; throws the server's error message on failure */
+async function request<T = any>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await authFetch(`${API_BASE_URL}${path}`, { ...init, headers: { ...getAuthHeaders(), ...init.headers } });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.error || `فشل الطلب (${res.status})`);
+  return body as T;
+}
+
+const json = (method: string, data: unknown): RequestInit => ({ method, body: JSON.stringify(data) });
+
+export type BookingStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'assigned'
+  | 'on_the_way'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show';
+
+export interface SlotRow {
+  id?: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  max_bookings: number;
+  is_active: boolean;
+}
+
 export const api = {
   // Auth — uses plain fetch (no auth header needed)
   async login(email: string, password: string) {
@@ -33,197 +65,61 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (!res.ok) throw new Error((await res.json()).error || 'Login failed');
-    return res.json();
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(body?.error || 'Login failed');
+    return body;
   },
 
   // Badges & Stats
-  async getBadges() {
-    const res = await authFetch(`${API_BASE_URL}/admin/badges`, { headers: getAuthHeaders() });
-    return res.json();
-  },
-
-  async getStats() {
-    const res = await authFetch(`${API_BASE_URL}/admin/stats`, { headers: getAuthHeaders() });
-    return res.json();
-  },
+  getBadges: () => request<{ bookings: number; messages: number }>('/admin/badges'),
+  getStats: (range = '30d') => request(`/admin/stats?range=${range}`),
+  getAuditLog: (limit = 200) => request(`/admin/audit-log?limit=${limit}`),
 
   // Pricing Matrix
-  async getPricingMatrix(type = 'iphone') {
-    const res = await authFetch(`${API_BASE_URL}/pricing/admin/matrix?type=${type}`, {
-      headers: getAuthHeaders(),
-    });
-    return res.json();
-  },
-
-  async updatePricingMatrix(updates: unknown[]) {
-    const res = await authFetch(`${API_BASE_URL}/pricing/admin/matrix`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ updates }),
-    });
-    if (!res.ok) throw new Error('Failed to update matrix');
-    return res.json();
-  },
+  getPricingMatrix: (type = 'iphone') => request(`/pricing/admin/matrix?type=${type}`),
+  updatePricingMatrix: (updates: unknown[]) => request('/pricing/admin/matrix', json('PUT', { updates })),
+  importPrices: (rows: unknown[], dryRun: boolean) => request('/pricing/admin/import', json('POST', { rows, dryRun })),
 
   // Bookings
-  async getBookings(params: Record<string, string> = {}) {
-    const qs = new URLSearchParams(params).toString();
-    const res = await authFetch(`${API_BASE_URL}/bookings/admin/all?${qs}`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error(`فشل تحميل الحجوزات (${res.status})`);
-    return res.json();
+  getBookings: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v !== undefined)).toString();
+    return request(`/bookings/admin/all?${qs}`);
   },
+  getBooking: (id: string) => request(`/bookings/admin/${id}`),
+  updateBookingStatus: (id: string, status: BookingStatus, note?: string, totalFinal?: number | null) =>
+    request(`/bookings/admin/${id}/status`, json('PATCH', { status, note: note || undefined, totalFinal })),
+  updateBookingNotes: (id: string, notes: string) => request(`/bookings/admin/${id}/notes`, json('PATCH', { notes })),
 
-  async updateBookingStatus(id: string, status: string, note?: string) {
-    const res = await authFetch(`${API_BASE_URL}/bookings/admin/${id}/status`, {
-      method: 'PATCH',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ status, note }),
-    });
-    if (!res.ok) throw new Error('Failed to update status');
-    return res.json();
-  },
+  // Areas & slots
+  getAreas: () => request('/areas/admin/all'),
+  createArea: (data: unknown) => request('/areas/admin', json('POST', data)),
+  updateArea: (id: string, data: unknown) => request(`/areas/admin/${id}`, json('PUT', data)),
+  deleteArea: (id: string) => request(`/areas/admin/${id}`, { method: 'DELETE' }),
+  getAreaSlots: (id: string) => request<SlotRow[]>(`/areas/admin/${id}/slots`),
+  saveAreaSlots: (id: string, slots: SlotRow[]) => request<SlotRow[]>(`/areas/admin/${id}/slots`, json('PUT', { slots })),
+  getAreaExceptions: (id: string) => request(`/areas/admin/${id}/exceptions`),
+  createSlotException: (data: unknown) => request('/areas/admin/exceptions', json('POST', data)),
+  deleteSlotException: (id: string) => request(`/areas/admin/exceptions/${id}`, { method: 'DELETE' }),
 
-  // Areas — public reads, admin writes
-  async getAreas() {
-    const res = await fetch(`${API_BASE_URL}/areas`);
-    return res.json();
-  },
-
-  async createArea(data: unknown) {
-    const res = await authFetch(`${API_BASE_URL}/areas/admin`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Failed to create area');
-    return res.json();
-  },
-
-  async updateArea(id: string, data: unknown) {
-    const res = await authFetch(`${API_BASE_URL}/areas/admin/${id}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Failed to update area');
-    return res.json();
-  },
-
-  async deleteArea(id: string) {
-    const res = await authFetch(`${API_BASE_URL}/areas/admin/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Failed to delete area');
-    return res.json();
-  },
-
-  // Catalog — public reads
-  async getDeviceTypes() {
-    const res = await fetch(`${API_BASE_URL}/catalog/device-types`);
-    return res.json();
-  },
-
-  async getModels(type = 'iphone') {
-    const qs = type ? `?type=${type}` : '';
-    const res = await fetch(`${API_BASE_URL}/catalog/models${qs}`);
-    return res.json();
-  },
-
-  async getServices() {
-    const res = await fetch(`${API_BASE_URL}/catalog/services`);
-    return res.json();
-  },
-
-  async createModel(data: any) {
-    const res = await authFetch(`${API_BASE_URL}/catalog/admin/models`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Failed to create model');
-    return res.json();
-  },
-
-  async updateModel(id: string, data: any) {
-    const res = await authFetch(`${API_BASE_URL}/catalog/admin/models/${id}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Failed to update model');
-    return res.json();
-  },
-
-  async deleteModel(id: string) {
-    const res = await authFetch(`${API_BASE_URL}/catalog/admin/models/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Failed to delete model');
-    return res.json();
-  },
-
-  async createService(data: any) {
-    const res = await authFetch(`${API_BASE_URL}/catalog/admin/services`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Failed to create service');
-    return res.json();
-  },
-
-  async deleteService(id: string) {
-    const res = await authFetch(`${API_BASE_URL}/catalog/admin/services/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Failed to delete service');
-    return res.json();
-  },
+  // Catalog
+  getAdminCatalog: () => request('/catalog/admin/all'),
+  getDeviceTypes: () => request('/catalog/device-types'),
+  getModels: (type = 'iphone') => request(`/catalog/models${type ? `?type=${type}` : ''}`),
+  getServices: () => request('/catalog/services'),
+  createModel: (data: unknown) => request('/catalog/admin/models', json('POST', data)),
+  updateModel: (id: string, data: unknown) => request(`/catalog/admin/models/${id}`, json('PUT', data)),
+  deleteModel: (id: string) => request(`/catalog/admin/models/${id}`, { method: 'DELETE' }),
+  createService: (data: unknown) => request('/catalog/admin/services', json('POST', data)),
+  updateService: (id: string, data: unknown) => request(`/catalog/admin/services/${id}`, json('PUT', data)),
+  deleteService: (id: string) => request(`/catalog/admin/services/${id}`, { method: 'DELETE' }),
 
   // Messages
-  async getMessages() {
-    const res = await authFetch(`${API_BASE_URL}/contact/admin/messages`, { headers: getAuthHeaders() });
-    return res.json();
-  },
-
-  async getQuotes() {
-    const res = await authFetch(`${API_BASE_URL}/contact/admin/quotes`, { headers: getAuthHeaders() });
-    return res.json();
-  },
-
-  async updateMessageStatus(id: string, status: string) {
-    const res = await authFetch(`${API_BASE_URL}/contact/admin/messages/${id}/status`, {
-      method: 'PATCH',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ status }),
-    });
-    return res.json();
-  },
-
-  // Audit Log
-  async getAuditLog() {
-    const res = await authFetch(`${API_BASE_URL}/admin/audit-log`, { headers: getAuthHeaders() });
-    return res.json();
-  },
+  getMessages: () => request('/contact/admin/messages'),
+  getQuotes: () => request('/contact/admin/quotes'),
+  updateMessageStatus: (id: string, status: string) =>
+    request(`/contact/admin/messages/${id}/status`, json('PATCH', { status })),
 
   // Settings
-  async getSettings() {
-    const res = await authFetch(`${API_BASE_URL}/settings/admin`, { headers: getAuthHeaders() });
-    return res.json();
-  },
-
-  async updateSettings(settings: Array<{ key: string; value: string }>) {
-    const res = await authFetch(`${API_BASE_URL}/settings/admin`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ settings }),
-    });
-    return res.json();
-  },
+  getSettings: () => request('/settings/admin'),
+  updateSettings: (settings: Array<{ key: string; value: string }>) => request('/settings/admin', json('PUT', { settings })),
 };

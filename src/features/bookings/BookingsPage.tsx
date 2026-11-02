@@ -1,126 +1,174 @@
-import { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import {
   Search,
   Phone,
   MessageCircle,
   FileSpreadsheet,
-  CheckCircle,
-  XCircle,
-  Clock,
   X,
   MapPin,
   Calendar,
   User,
   Smartphone,
   RefreshCw,
+  ChevronRight,
+  ChevronLeft,
+  History,
+  StickyNote,
+  Save,
 } from 'lucide-react';
-import { api } from '../../lib/api';
+import { api, BookingStatus } from '../../lib/api';
+import { useToast } from '../../shared/components/ui/Toast';
+import {
+  STATUS_META,
+  STATUS_FLOW,
+  StatusBadge,
+  formatMoney,
+  formatDay,
+  formatDateTime,
+  formatSlotLabel,
+  whatsappNumber,
+  downloadCsv,
+} from '../../shared/utils/format';
 
-interface Booking {
-  id: string;
-  backendId?: string;
-  date: string;
-  customer: string;
-  phone: string;
-  whatsapp: string;
-  device: string;
-  services: string[];
-  area: string;
-  transportFee: number;
-  total: number;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  slot: string;
-  address: string;
-  notes?: string;
-}
+const STATUS_TABS: Array<{ id: 'all' | BookingStatus; label: string }> = [
+  { id: 'all', label: 'الكل' },
+  { id: 'pending', label: 'بانتظار التأكيد' },
+  { id: 'confirmed', label: 'مؤكد' },
+  { id: 'assigned', label: 'تم تعيين فني' },
+  { id: 'on_the_way', label: 'في الطريق' },
+  { id: 'in_progress', label: 'جاري الإصلاح' },
+  { id: 'completed', label: 'مكتمل' },
+  { id: 'cancelled', label: 'ملغي' },
+  { id: 'no_show', label: 'لم يحضر' },
+];
+
+const PAGE_SIZE = 20;
 
 export function BookingsPage() {
   const outlet = useOutletContext<{ refreshBadges?: () => void }>();
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [search, setSearch] = useState<string>('');
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [activeNotes, setActiveNotes] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const toast = useToast();
+  const [params, setParams] = useSearchParams();
 
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const status = params.get('status') || 'all';
+  const page = Math.max(1, parseInt(params.get('page') || '1', 10));
+  const areaId = params.get('area') || '';
+  const dateFrom = params.get('from') || '';
+  const dateTo = params.get('to') || '';
+  const openId = params.get('open');
 
-  const fetchBookings = async () => {
+  const [searchInput, setSearchInput] = useState(params.get('q') || '');
+  const search = params.get('q') || '';
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 0 });
+  const [areas, setAreas] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const updateParams = useCallback(
+    (changes: Record<string, string | null>, resetPage = true) => {
+      const next = new URLSearchParams(params);
+      Object.entries(changes).forEach(([k, v]) => (v ? next.set(k, v) : next.delete(k)));
+      if (resetPage && !('page' in changes)) next.delete('page');
+      setParams(next, { replace: true });
+    },
+    [params, setParams]
+  );
+
+  const filters = useCallback(
+    () => ({
+      status,
+      search,
+      area_id: areaId,
+      date_from: dateFrom,
+      date_to: dateTo,
+    }),
+    [status, search, areaId, dateFrom, dateTo]
+  );
+
+  const fetchBookings = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await api.getBookings();
-      if (res && Array.isArray(res.data) && res.data.length > 0) {
-        const mapped: Booking[] = res.data.map((item: any) => ({
-          id: item.booking_number,
-          backendId: item.id,
-          date: item.created_at ? new Date(item.created_at).toLocaleString('ar-EG') : '',
-          customer: item.customer?.name || 'عميل',
-          phone: item.customer?.phone || '',
-          whatsapp: item.whatsapp_number || item.customer?.phone || '',
-          device: item.model?.name || 'جهاز غير محدد',
-          services: item.services?.map((s: any) => s.service?.name_ar || 'خدمة صيانة') || [],
-          area: item.area?.name_ar || 'المعادي',
-          transportFee: Number(item.transport_fee_snapshot || 0),
-          total: Number(item.estimated_total || item.total_final || 0),
-          status: item.status || 'pending',
-          slot: `${item.slot_date ? new Date(item.slot_date).toLocaleDateString('ar-EG') : ''} - ${item.slot_label_snapshot || ''}`,
-          address: item.address || '',
-          notes: item.notes || '',
-        }));
-        setBookings(mapped);
-      } else {
-        // Fallback demo if DB empty
-        setBookings([]);
-      }
-    } catch (e) {
-      console.error('Failed to fetch real bookings, keeping current', e);
+      const res = await api.getBookings({ ...filters(), page: String(page), limit: String(PAGE_SIZE) });
+      setBookings(res.data || []);
+      setMeta({ total: res.meta?.total || 0, totalPages: res.meta?.totalPages || 0 });
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر تحميل الحجوزات');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filters, page, toast]);
 
   useEffect(() => {
     fetchBookings();
+  }, [fetchBookings]);
+
+  useEffect(() => {
+    api.getAreas().then(setAreas).catch(() => {});
   }, []);
 
-  const handleOpenDetails = (b: Booking) => {
-    setSelectedBooking(b);
-    setActiveNotes(b.notes || '');
-  };
+  // Debounce search typing into the URL
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchInput.trim() !== search) updateParams({ q: searchInput.trim() || null });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput, search, updateParams]);
 
-  const handleUpdateStatus = async (newStatus: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
-    if (!selectedBooking) return;
-    setIsUpdating(true);
+  const handleExport = async () => {
+    setIsExporting(true);
     try {
-      if (selectedBooking.backendId) {
-        await api.updateBookingStatus(selectedBooking.backendId, newStatus, activeNotes);
-      }
-      setBookings((prev) =>
-        prev.map((item) =>
-          item.id === selectedBooking.id
-            ? { ...item, status: newStatus, notes: activeNotes }
-            : item
-        )
-      );
-      setSelectedBooking((prev) => (prev ? { ...prev, status: newStatus, notes: activeNotes } : null));
-      outlet?.refreshBadges?.();
-    } catch (err: any) {
-      alert(err.message || 'فشل تحديث حالة الحجز في السيرفر');
+      const res = await api.getBookings({ ...filters(), page: '1', limit: '1000' });
+      const rows = (res.data || []).map((b: any) => [
+        b.booking_number,
+        formatDateTime(b.created_at),
+        b.customer?.name,
+        b.customer?.phone,
+        b.whatsapp_number,
+        b.customer?.email,
+        b.model?.name,
+        b.services?.map((s: any) => s.service?.name_ar).join(' + '),
+        b.area?.name_ar,
+        b.address,
+        b.slot_date?.slice(0, 10),
+        b.slot_label_snapshot,
+        Number(b.estimated_total),
+        b.total_final !== null ? Number(b.total_final) : '',
+        STATUS_META[b.status as BookingStatus]?.label || b.status,
+        b.notes,
+        b.internal_notes,
+      ]);
+      downloadCsv(`focusfix-bookings-${new Date().toISOString().slice(0, 10)}.csv`, [
+        [
+          'رقم الحجز',
+          'تاريخ الإنشاء',
+          'العميل',
+          'الهاتف',
+          'واتساب',
+          'البريد',
+          'الجهاز',
+          'الخدمات',
+          'المنطقة',
+          'العنوان',
+          'تاريخ الموعد',
+          'الفترة',
+          'الإجمالي التقديري',
+          'الإجمالي النهائي',
+          'الحالة',
+          'ملاحظات العميل',
+          'ملاحظات داخلية',
+        ],
+        ...rows,
+      ]);
+      if ((res.meta?.total || 0) > 1000) toast.info('تم تصدير أول 1000 حجز فقط. ضيّق الفلاتر لتصدير الباقي.');
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر التصدير');
     } finally {
-      setIsUpdating(false);
+      setIsExporting(false);
     }
   };
 
-  const filtered = bookings.filter((b) => {
-    const matchesStatus = filterStatus === 'all' || b.status === filterStatus;
-    const matchesSearch =
-      b.id.toLowerCase().includes(search.toLowerCase()) ||
-      b.customer.includes(search) ||
-      b.phone.includes(search) ||
-      b.device.toLowerCase().includes(search.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  const hasFilters = status !== 'all' || !!search || !!areaId || !!dateFrom || !!dateTo;
 
   return (
     <div className="space-y-6">
@@ -129,7 +177,7 @@ export function BookingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">إدارة الحجوزات</h1>
           <p className="text-sm text-slate-500 mt-1">
-            متابعة الحجوزات الواردة، تأكيد المواعيد، وإدارة الحالات
+            {meta.total} حجز {hasFilters ? 'مطابق للفلاتر' : 'إجمالاً'}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -139,44 +187,80 @@ export function BookingsPage() {
             className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 text-emerald-600 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>تحديث الحجوزات</span>
+            <span>تحديث</span>
           </button>
-          <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-50">
+          <button
+            onClick={handleExport}
+            disabled={isExporting || meta.total === 0}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>تصدير Excel</span>
+            <span>{isExporting ? 'جاري التصدير…' : 'تصدير Excel'}</span>
           </button>
         </div>
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="relative w-full md:w-96">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="بحث برقم الحجز، الاسم، الهاتف، أو الموديل..."
-            className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+        <div className="flex flex-col lg:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="بحث برقم الحجز، الاسم، الهاتف، أو الموديل..."
+              className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <select
+            value={areaId}
+            onChange={(e) => updateParams({ area: e.target.value || null })}
+            className="border border-slate-200 rounded-lg text-sm px-3 py-2 bg-white"
+          >
+            <option value="">كل المناطق</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name_ar}
+              </option>
+            ))}
+          </select>
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <span>موعد من</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => updateParams({ from: e.target.value || null })}
+              className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
+            />
+            <span>إلى</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => updateParams({ to: e.target.value || null })}
+              className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
+            />
+          </div>
+          {hasFilters && (
+            <button
+              onClick={() => {
+                setSearchInput('');
+                setParams({}, { replace: true });
+              }}
+              className="text-xs font-semibold text-rose-600 hover:underline whitespace-nowrap"
+            >
+              مسح الفلاتر
+            </button>
+          )}
         </div>
 
-        {/* Status Filters */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto">
-          {[
-            { id: 'all', label: 'الكل' },
-            { id: 'pending', label: 'بانتظار التأكيد' },
-            { id: 'confirmed', label: 'مؤكد' },
-            { id: 'completed', label: 'مكتمل' },
-            { id: 'cancelled', label: 'ملغي' },
-          ].map((tab) => (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          {STATUS_TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setFilterStatus(tab.id)}
+              onClick={() => updateParams({ status: tab.id === 'all' ? null : tab.id })}
               className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
-                filterStatus === tab.id
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                status === tab.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
               {tab.label}
@@ -195,26 +279,42 @@ export function BookingsPage() {
                 <th className="py-3 px-4">العميل والتواصل</th>
                 <th className="py-3 px-4">الجهاز والخدمات</th>
                 <th className="py-3 px-4">المكان والموعد</th>
-                <th className="py-3 px-4">الإجمالي التقديري</th>
+                <th className="py-3 px-4">الإجمالي</th>
                 <th className="py-3 px-4">الحالة</th>
                 <th className="py-3 px-4 text-center">إجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map((b) => (
-                <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-4 px-4 font-mono font-bold text-slate-900">
-                    {b.id}
-                    <div className="text-[11px] font-sans font-normal text-slate-400 mt-0.5">
-                      {b.date}
-                    </div>
+              {isLoading && bookings.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                    جاري التحميل…
                   </td>
-                  <td className="py-4 px-4">
-                    <div className="font-bold text-slate-900">{b.customer}</div>
+                </tr>
+              )}
+              {!isLoading && bookings.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                    {hasFilters ? 'لا توجد حجوزات مطابقة للفلاتر' : 'لا توجد حجوزات بعد'}
+                  </td>
+                </tr>
+              )}
+              {bookings.map((b) => (
+                <tr
+                  key={b.id}
+                  className={`hover:bg-slate-50/80 transition-colors cursor-pointer ${isLoading ? 'opacity-60' : ''}`}
+                  onClick={() => updateParams({ open: b.id }, false)}
+                >
+                  <td className="py-4 px-4 font-mono font-bold text-slate-900">
+                    {b.booking_number}
+                    <div className="text-[11px] font-sans font-normal text-slate-400 mt-0.5">{formatDateTime(b.created_at)}</div>
+                  </td>
+                  <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="font-bold text-slate-900">{b.customer?.name}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <a
-                        href={`https://wa.me/2${b.whatsapp}?text=${encodeURIComponent(
-                          `مرحباً ${b.customer}، بخصوص حجز صيانة ${b.device} برقم ${b.id} من FocusFix.`
+                        href={`https://wa.me/${whatsappNumber(b.whatsapp_number || b.customer?.phone)}?text=${encodeURIComponent(
+                          `مرحباً ${b.customer?.name}، بخصوص حجز صيانة ${b.model?.name} برقم ${b.booking_number} من FocusFix.`
                         )}`}
                         target="_blank"
                         rel="noreferrer"
@@ -224,62 +324,32 @@ export function BookingsPage() {
                         <span>واتساب</span>
                       </a>
                       <span className="text-slate-300">•</span>
-                      <a
-                        href={`tel:${b.phone}`}
-                        className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-800 font-medium"
-                      >
+                      <a href={`tel:${b.customer?.phone}`} className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-800 font-medium">
                         <Phone className="w-3.5 h-3.5" />
-                        <span>اتصال</span>
+                        <span dir="ltr">{b.customer?.phone}</span>
                       </a>
                     </div>
                   </td>
                   <td className="py-4 px-4">
-                    <div className="font-semibold text-slate-900">{b.device}</div>
+                    <div className="font-semibold text-slate-900">{b.model?.name}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{b.services?.map((s: any) => s.service?.name_ar).join(' + ')}</div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="font-semibold text-slate-800">{b.area?.name_ar}</div>
                     <div className="text-xs text-slate-500 mt-0.5">
-                      {b.services.join(' + ')}
+                      {formatDay(b.slot_date)} — {formatSlotLabel(b.slot_label_snapshot)}
                     </div>
                   </td>
                   <td className="py-4 px-4">
-                    <div className="font-semibold text-slate-800">{b.area}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{b.slot}</div>
+                    <div className="font-bold text-slate-900">{formatMoney(b.total_final ?? b.estimated_total)}</div>
+                    {b.total_final !== null && <div className="text-[10px] text-emerald-600 font-semibold">نهائي</div>}
                   </td>
                   <td className="py-4 px-4">
-                    <div className="font-bold text-slate-900">
-                      {b.total.toLocaleString()} ج.م
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    {b.status === 'pending' && (
-                      <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800 inline-flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        بانتظار التأكيد
-                      </span>
-                    )}
-                    {b.status === 'confirmed' && (
-                      <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-blue-100 text-blue-800 inline-flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" />
-                        مؤكد
-                      </span>
-                    )}
-                    {b.status === 'completed' && (
-                      <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 inline-flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" />
-                        مكتمل
-                      </span>
-                    )}
-                    {b.status === 'cancelled' && (
-                      <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-rose-100 text-rose-800 inline-flex items-center gap-1">
-                        <XCircle className="w-3 h-3" />
-                        ملغي
-                      </span>
-                    )}
+                    <StatusBadge status={b.status} />
                   </td>
                   <td className="py-4 px-4 text-center">
-                    <button
-                      onClick={() => handleOpenDetails(b)}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors"
-                    >
-                      تفاصيل وإجراء
+                    <button className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
+                      تفاصيل
                     </button>
                   </td>
                 </tr>
@@ -287,181 +357,351 @@ export function BookingsPage() {
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* Booking Details Modal / Drawer */}
-      {selectedBooking && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
-              <div>
-                <span className="text-xs font-mono font-bold text-emerald-600 block">
-                  {selectedBooking.id}
-                </span>
-                <h3 className="text-lg font-bold text-slate-900 mt-0.5">تفاصيل الحجز والإجراءات</h3>
-              </div>
+        {meta.totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-sm">
+            <span className="text-slate-500">
+              صفحة {page} من {meta.totalPages}
+            </span>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setSelectedBooking(null)}
-                className="p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100"
+                disabled={page <= 1}
+                onClick={() => updateParams({ page: String(page - 1) }, false)}
+                className="p-1.5 border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50"
+                aria-label="الصفحة السابقة"
               >
-                <X className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4" />
               </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 space-y-6">
-              {/* Customer and Contact */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-slate-500" />
-                    <span className="font-bold text-slate-900">{selectedBooking.customer}</span>
-                  </div>
-                  <div className="text-xs text-slate-500 font-mono mt-1 mr-6">
-                    {selectedBooking.phone}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={`https://wa.me/2${selectedBooking.whatsapp}?text=${encodeURIComponent(
-                      `مرحباً ${selectedBooking.customer}، بخصوص حجز صيانة ${selectedBooking.device} برقم ${selectedBooking.id} من FocusFix.`
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
-                    title="محادثة واتساب"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                  </a>
-                  <a
-                    href={`tel:${selectedBooking.phone}`}
-                    className="p-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 transition-colors"
-                    title="اتصال هاتفي"
-                  >
-                    <Phone className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-
-              {/* Device and Services */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                  <Smartphone className="w-3.5 h-3.5" />
-                  <span>الجهاز والخدمات المطلوبة</span>
-                </h4>
-                <div className="p-4 border border-slate-200 rounded-xl space-y-2">
-                  <div className="font-bold text-slate-900">{selectedBooking.device}</div>
-                  <div className="text-sm text-slate-600">
-                    {selectedBooking.services.map((s, idx) => (
-                      <span key={idx} className="inline-block bg-slate-100 px-2.5 py-1 rounded-md text-xs font-medium ml-1.5 mb-1.5">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-sm">
-                    <span className="text-slate-500">الإجمالي التقديري:</span>
-                    <span className="font-extrabold text-emerald-600 text-base">
-                      {selectedBooking.total.toLocaleString()} ج.م
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Location and Appointment */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>الموقع والموعد</span>
-                </h4>
-                <div className="p-4 border border-slate-200 rounded-xl text-sm space-y-1.5">
-                  <div className="font-semibold text-slate-800">{selectedBooking.area}</div>
-                  <div className="text-xs text-slate-600">{selectedBooking.address}</div>
-                  <div className="text-xs text-emerald-700 font-medium flex items-center gap-1 mt-2">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>{selectedBooking.slot}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Internal Notes */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 block">
-                  ملاحظات تشغيلية داخلية (Internal Notes)
-                </label>
-                <textarea
-                  value={activeNotes}
-                  onChange={(e) => setActiveNotes(e.target.value)}
-                  placeholder="أضف أي ملاحظات للفني أو سبب التعديل..."
-                  rows={2}
-                  className="w-full p-3 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              {/* Status Action Buttons */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <span className="text-xs font-bold text-slate-700 block">تحديث حالة الحجز:</span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button
-                    disabled={isUpdating}
-                    onClick={() => handleUpdateStatus('confirmed')}
-                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
-                      selectedBooking.status === 'confirmed'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'border-slate-200 text-slate-700 hover:bg-blue-50'
-                    } disabled:opacity-50`}
-                  >
-                    تأكيد الحجز
-                  </button>
-                  <button
-                    disabled={isUpdating}
-                    onClick={() => handleUpdateStatus('completed')}
-                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
-                      selectedBooking.status === 'completed'
-                        ? 'bg-emerald-600 text-white border-emerald-600'
-                        : 'border-slate-200 text-slate-700 hover:bg-emerald-50'
-                    } disabled:opacity-50`}
-                  >
-                    تم الإصلاح
-                  </button>
-                  <button
-                    disabled={isUpdating}
-                    onClick={() => handleUpdateStatus('cancelled')}
-                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
-                      selectedBooking.status === 'cancelled'
-                        ? 'bg-rose-600 text-white border-rose-600'
-                        : 'border-slate-200 text-slate-700 hover:bg-rose-50'
-                    } disabled:opacity-50`}
-                  >
-                    إلغاء الطلب
-                  </button>
-                  <button
-                    disabled={isUpdating}
-                    onClick={() => handleUpdateStatus('pending')}
-                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-colors ${
-                      selectedBooking.status === 'pending'
-                        ? 'bg-amber-600 text-white border-amber-600'
-                        : 'border-slate-200 text-slate-700 hover:bg-amber-50'
-                    } disabled:opacity-50`}
-                  >
-                    انتظار
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
               <button
-                onClick={() => setSelectedBooking(null)}
-                className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800"
+                disabled={page >= meta.totalPages}
+                onClick={() => updateParams({ page: String(page + 1) }, false)}
+                className="p-1.5 border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50"
+                aria-label="الصفحة التالية"
               >
-                حفظ وإغلاق
+                <ChevronLeft className="w-4 h-4" />
               </button>
             </div>
           </div>
-        </div>
+        )}
+      </div>
+
+      {openId && (
+        <BookingDrawer
+          id={openId}
+          onClose={() => updateParams({ open: null }, false)}
+          onChanged={() => {
+            fetchBookings();
+            outlet?.refreshBadges?.();
+          }}
+        />
       )}
+    </div>
+  );
+}
+
+function BookingDrawer({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+  const toast = useToast();
+  const [booking, setBooking] = useState<any>(null);
+  const [statusNote, setStatusNote] = useState('');
+  const [internalNotes, setInternalNotes] = useState('');
+  const [finalTotal, setFinalTotal] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const b = await api.getBooking(id);
+      setBooking(b);
+      setInternalNotes(b.internal_notes || '');
+      setFinalTotal(b.total_final !== null ? String(Number(b.total_final)) : '');
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر تحميل الحجز');
+      onClose();
+    }
+  }, [id, toast, onClose]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const changeStatus = async (next: BookingStatus) => {
+    if (!booking || next === booking.status) return;
+    if ((next === 'cancelled' || next === 'no_show') && !confirm(`تأكيد تغيير الحالة إلى "${STATUS_META[next].label}"؟`)) return;
+    setIsUpdating(true);
+    try {
+      const total = next === 'completed' && finalTotal !== '' ? Number(finalTotal) : undefined;
+      await api.updateBookingStatus(booking.id, next, statusNote.trim(), total);
+      toast.success(`تم تحديث الحالة إلى "${STATUS_META[next].label}"`);
+      setStatusNote('');
+      await load();
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر تحديث الحالة');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const saveFinalTotal = async () => {
+    if (!booking) return;
+    setIsUpdating(true);
+    try {
+      await api.updateBookingStatus(booking.id, booking.status, 'تحديث الإجمالي النهائي', finalTotal === '' ? null : Number(finalTotal));
+      toast.success('تم حفظ الإجمالي النهائي');
+      await load();
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر الحفظ');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const saveNotes = async () => {
+    if (!booking) return;
+    setIsSavingNotes(true);
+    try {
+      await api.updateBookingNotes(booking.id, internalNotes);
+      toast.success('تم حفظ الملاحظات الداخلية');
+      setBooking({ ...booking, internal_notes: internalNotes });
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر حفظ الملاحظات');
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
+
+  const nextStep = booking ? STATUS_FLOW[STATUS_FLOW.indexOf(booking.status) + 1] : undefined;
+  const notesDirty = booking && (booking.internal_notes || '') !== internalNotes;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex justify-start" onClick={onClose}>
+      <div
+        className="bg-white w-full max-w-xl h-full overflow-y-auto shadow-2xl border-l border-slate-200 mr-auto"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+          <div>
+            <span className="text-xs font-mono font-bold text-emerald-600 block">{booking?.booking_number || '…'}</span>
+            <h3 className="text-lg font-bold text-slate-900 mt-0.5">تفاصيل الحجز</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            {booking && <StatusBadge status={booking.status} />}
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100" aria-label="إغلاق">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {!booking ? (
+          <div className="p-10 text-center text-slate-400">جاري التحميل…</div>
+        ) : (
+          <div className="p-5 sm:p-6 space-y-6">
+            {/* Quick action */}
+            {nextStep && booking.status !== 'cancelled' && booking.status !== 'no_show' && (
+              <button
+                disabled={isUpdating}
+                onClick={() => changeStatus(nextStep)}
+                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm disabled:opacity-50"
+              >
+                {isUpdating ? 'جاري التحديث…' : `الخطوة التالية: ${STATUS_META[nextStep].label}`}
+              </button>
+            )}
+
+            {/* Customer */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-slate-500" />
+                  <span className="font-bold text-slate-900">{booking.customer?.name}</span>
+                  {booking.customer?._count?.bookings > 1 && (
+                    <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                      عميل متكرر ({booking.customer._count.bookings} حجوزات)
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500 font-mono mt-1 mr-6" dir="ltr">
+                  {booking.customer?.phone}
+                </div>
+                {booking.customer?.email && <div className="text-xs text-slate-500 mt-0.5 mr-6">{booking.customer.email}</div>}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://wa.me/${whatsappNumber(booking.whatsapp_number || booking.customer?.phone)}?text=${encodeURIComponent(
+                    `مرحباً ${booking.customer?.name}، بخصوص حجز صيانة ${booking.model?.name} برقم ${booking.booking_number} من FocusFix.`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+                  title="محادثة واتساب"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                </a>
+                <a href={`tel:${booking.customer?.phone}`} className="p-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 transition-colors" title="اتصال">
+                  <Phone className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+
+            {/* Device & services */}
+            <Section icon={Smartphone} title="الجهاز والخدمات">
+              <div className="font-bold text-slate-900">{booking.model?.name}</div>
+              <div className="divide-y divide-slate-100">
+                {booking.services?.map((s: any) => (
+                  <div key={s.id} className="flex items-center justify-between py-2 text-sm">
+                    <span className="text-slate-700">
+                      {s.service?.name_ar}
+                      <span className="text-[11px] text-slate-400 mr-2">ضمان {s.warranty_days_snapshot} يوم</span>
+                    </span>
+                    <span className="font-semibold text-slate-900">{s.price_pending ? 'يحدد بعد الفحص' : formatMoney(s.price_snapshot)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-slate-500">رسوم الانتقال</span>
+                  <span className="font-semibold">{formatMoney(booking.transport_fee_snapshot)}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-slate-500">الإجمالي التقديري</span>
+                  <span className="font-extrabold text-emerald-600">{formatMoney(booking.estimated_total)}</span>
+                </div>
+              </div>
+              <div className="flex items-end gap-2 pt-2">
+                <label className="flex-1 text-xs font-bold text-slate-700">
+                  الإجمالي النهائي المحصّل (ج.م)
+                  <input
+                    type="number"
+                    min={0}
+                    value={finalTotal}
+                    onChange={(e) => setFinalTotal(e.target.value)}
+                    placeholder={String(Number(booking.estimated_total))}
+                    className="mt-1 w-full p-2 border border-slate-200 rounded-lg text-sm font-normal"
+                  />
+                </label>
+                <button
+                  onClick={saveFinalTotal}
+                  disabled={isUpdating || finalTotal === (booking.total_final !== null ? String(Number(booking.total_final)) : '')}
+                  className="px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold disabled:opacity-40"
+                >
+                  حفظ
+                </button>
+              </div>
+            </Section>
+
+            {/* Location */}
+            <Section icon={MapPin} title="الموقع والموعد">
+              <div className="font-semibold text-slate-800">
+                {booking.area?.name_ar} {booking.property_type === 'office' ? '— مكتب' : '— منزل'}
+              </div>
+              <div className="text-sm text-slate-600">{booking.address}</div>
+              {booking.location_lat && booking.location_lng && (
+                <a
+                  href={`https://maps.google.com/?q=${booking.location_lat},${booking.location_lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-emerald-700 underline"
+                >
+                  فتح الموقع على الخريطة
+                </a>
+              )}
+              <div className="text-sm text-emerald-700 font-semibold flex items-center gap-1 pt-1">
+                <Calendar className="w-4 h-4" />
+                <span>
+                  {formatDay(booking.slot_date)} — {formatSlotLabel(booking.slot_label_snapshot)}
+                </span>
+              </div>
+            </Section>
+
+            {booking.notes && (
+              <Section icon={StickyNote} title="ملاحظات العميل">
+                <p className="text-sm text-slate-700 whitespace-pre-wrap">{booking.notes}</p>
+              </Section>
+            )}
+
+            {/* Internal notes */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 block">ملاحظات داخلية (لا يراها العميل)</label>
+              <textarea
+                value={internalNotes}
+                onChange={(e) => setInternalNotes(e.target.value)}
+                placeholder="ملاحظات للفني، قطع الغيار المطلوبة، ..."
+                rows={3}
+                className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              {notesDirty && (
+                <button
+                  onClick={saveNotes}
+                  disabled={isSavingNotes}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold disabled:opacity-50"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {isSavingNotes ? 'جاري الحفظ…' : 'حفظ الملاحظات'}
+                </button>
+              )}
+            </div>
+
+            {/* Status */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <span className="text-xs font-bold text-slate-700 block">تغيير الحالة</span>
+              <input
+                value={statusNote}
+                onChange={(e) => setStatusNote(e.target.value)}
+                placeholder="سبب أو ملاحظة على التغيير (اختياري) — تظهر في سجل الحجز"
+                className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+              />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(Object.keys(STATUS_META) as BookingStatus[]).map((s) => (
+                  <button
+                    key={s}
+                    disabled={isUpdating}
+                    onClick={() => changeStatus(s)}
+                    className={`py-2 px-2 rounded-lg text-xs font-bold border transition-colors disabled:opacity-50 ${
+                      booking.status === s ? `${STATUS_META[s].className} border-transparent` : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {STATUS_META[s].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* History */}
+            <Section icon={History} title="سجل الحجز">
+              <ol className="relative border-r border-slate-200 mr-1.5 space-y-4">
+                {booking.events?.map((ev: any) => (
+                  <li key={ev.id} className="mr-4">
+                    <span className="absolute -right-1.5 mt-1.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
+                    <div className="text-xs font-bold text-slate-800">{STATUS_META[ev.status as BookingStatus]?.label || ev.status}</div>
+                    {ev.note && <div className="text-xs text-slate-600 mt-0.5">{ev.note}</div>}
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      {formatDateTime(ev.created_at)} • {ev.created_by}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </Section>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Section({ icon: Icon, title, children }: { icon: typeof User; title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+        <Icon className="w-3.5 h-3.5" />
+        <span>{title}</span>
+      </h4>
+      <div className="p-4 border border-slate-200 rounded-xl space-y-1.5">{children}</div>
     </div>
   );
 }

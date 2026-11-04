@@ -14,8 +14,10 @@ import {
 } from 'lucide-react';
 import { BlogCategory } from '../types/blog.types';
 import { blogApi } from '../api/blogApi';
+import { useToast } from '../../../shared/components/ui/Toast';
 
 export function CategoriesManagerPage() {
+  const toast = useToast();
   const [categories, setCategories] = useState<BlogCategory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<BlogCategory | null>(null);
@@ -67,43 +69,34 @@ export function CategoriesManagerPage() {
         .toLowerCase()
         .replace(/[^a-z0-9\u0600-\u06FF]+/g, '-')
         .replace(/^-|-$/g, '');
+    const payload = {
+      nameAr,
+      nameEn: nameEn || nameAr,
+      slug: finalSlug,
+      parentId: parentId || null,
+      descriptionAr: descAr,
+      descriptionEn: descEn,
+    };
 
-    if (editingCategory) {
-      // In a real API we'd call update; for now we can update locally/via API
-      const updated = categories.map((c) =>
-        c.id === editingCategory.id
-          ? {
-              ...c,
-              nameAr,
-              nameEn: nameEn || nameAr,
-              slug: finalSlug,
-              parentId: parentId || null,
-              descriptionAr: descAr,
-              descriptionEn: descEn,
-            }
-          : c
-      );
-      setCategories(updated);
-      localStorage.setItem('focusfix_cms_categories', JSON.stringify(updated));
-    } else {
-      await blogApi.createCategory({
-        nameAr,
-        nameEn: nameEn || nameAr,
-        slug: finalSlug,
-        parentId: parentId || null,
-        descriptionAr: descAr,
-        descriptionEn: descEn,
-      });
+    try {
+      if (editingCategory) await blogApi.updateCategory(editingCategory.id, payload);
+      else await blogApi.createCategory(payload);
+      toast.success(editingCategory ? 'تم تحديث التصنيف' : 'تمت إضافة التصنيف');
       await loadCategories();
+      setIsModalOpen(false);
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر حفظ التصنيف');
     }
-
-    setIsModalOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا التصنيف؟')) {
+    if (!confirm('هل أنت متأكد من حذف هذا التصنيف؟')) return;
+    try {
       await blogApi.deleteCategory(id);
+      toast.success('تم حذف التصنيف');
       await loadCategories();
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر حذف التصنيف');
     }
   };
 

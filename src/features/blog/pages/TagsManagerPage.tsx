@@ -14,8 +14,10 @@ import {
 } from 'lucide-react';
 import { BlogTag } from '../types/blog.types';
 import { blogApi } from '../api/blogApi';
+import { useToast } from '../../../shared/components/ui/Toast';
 
 export function TagsManagerPage() {
+  const toast = useToast();
   const [tags, setTags] = useState<BlogTag[]>([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,18 +35,26 @@ export function TagsManagerPage() {
 
   const handleCreate = async () => {
     if (!nameAr.trim()) return;
-    await blogApi.createTag(nameAr.trim(), nameEn.trim() || undefined);
-    await loadTags();
-    setIsModalOpen(false);
-    setNameAr('');
-    setNameEn('');
+    try {
+      await blogApi.createTag(nameAr.trim(), nameEn.trim() || undefined);
+      toast.success('تمت إضافة الوسم');
+      await loadTags();
+      setIsModalOpen(false);
+      setNameAr('');
+      setNameEn('');
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر إضافة الوسم');
+    }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا الوسم؟')) {
-      const remaining = tags.filter((t) => t.id !== id);
-      setTags(remaining);
-      localStorage.setItem('focusfix_cms_tags', JSON.stringify(remaining));
+    if (!confirm('هل أنت متأكد من حذف هذا الوسم؟')) return;
+    try {
+      await blogApi.deleteTag(id);
+      toast.success('تم حذف الوسم');
+      await loadTags();
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر حذف الوسم');
     }
   };
 

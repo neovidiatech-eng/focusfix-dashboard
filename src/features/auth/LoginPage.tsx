@@ -89,9 +89,6 @@ export function LoginPage() {
                 className="w-full pl-4 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              كلمة المرور الافتراضية: <code className="text-slate-600 font-mono">Admin@FocusFix2026</code>
-            </p>
           </div>
 
           <button
@@ -105,7 +102,7 @@ export function LoginPage() {
         </form>
 
         <div className="bg-slate-50 p-4 text-center border-t border-slate-100 text-xs text-slate-500">
-          محمية بتشفير 256-bit وقفل مؤقت بعد 5 محاولات خاطئة
+          اتصال مشفّر — يتم إيقاف الدخول مؤقتاً بعد محاولات خاطئة متكررة
         </div>
       </div>
     </div>

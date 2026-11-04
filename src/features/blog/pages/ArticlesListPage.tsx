@@ -19,9 +19,11 @@ import {
 } from 'lucide-react';
 import { BlogPost, BlogCategory, BlogAuthor } from '../types/blog.types';
 import { blogApi } from '../api/blogApi';
+import { useToast } from '../../../shared/components/ui/Toast';
 import { ArticlePreviewModal } from '../components/ArticlePreviewModal';
 
 export function ArticlesListPage() {
+  const toast = useToast();
   // Status Tab
   const [activeTab, setActiveTab] = useState<'all' | 'published' | 'draft' | 'scheduled' | 'trash'>('all');
 
@@ -69,8 +71,8 @@ export function ArticlesListPage() {
       setCounts(postsRes.counts);
       setCategories(catsRes);
       setAuthors(authorsRes);
-    } catch {
-      // Handled in api fallback
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر تحميل المقالات');
     } finally {
       setIsLoading(false);
     }
@@ -85,9 +87,9 @@ export function ArticlesListPage() {
   const filteredPosts = useMemo(() => {
     return posts.filter((p) => {
       // SEO status filter
-      if (selectedSeoStatus === 'good' && (p.seoScore || 85) < 80) return false;
-      if (selectedSeoStatus === 'average' && ((p.seoScore || 85) < 60 || (p.seoScore || 85) >= 80)) return false;
-      if (selectedSeoStatus === 'poor' && (p.seoScore || 85) >= 60) return false;
+      if (selectedSeoStatus === 'good' && (p.seoScore ?? 0) < 80) return false;
+      if (selectedSeoStatus === 'average' && ((p.seoScore ?? 0) < 60 || (p.seoScore ?? 0) >= 80)) return false;
+      if (selectedSeoStatus === 'poor' && (p.seoScore ?? 0) >= 60) return false;
 
       if (!search) return true;
       const q = search.toLowerCase();
@@ -121,49 +123,33 @@ export function ArticlesListPage() {
   const handleExecuteBulk = async () => {
     if (selectedIds.length === 0 || !bulkAction) return;
 
-    if (bulkAction === 'delete') {
-      if (confirm(`هل أنت متأكد من الحذف النهائي لـ ${selectedIds.length} مقال؟`)) {
-        await blogApi.bulkAction(selectedIds, 'delete');
-      }
-    } else if (bulkAction === 'trash') {
-      await blogApi.bulkAction(selectedIds, 'trash');
-    } else if (bulkAction === 'restore') {
-      await blogApi.bulkAction(selectedIds, 'restore');
-    } else if (bulkAction === 'publish') {
-      await blogApi.bulkAction(selectedIds, 'publish');
-    } else if (bulkAction === 'draft') {
-      await blogApi.bulkAction(selectedIds, 'draft');
-    }
+    if (bulkAction === 'delete' && !confirm(`هل أنت متأكد من الحذف النهائي لـ ${selectedIds.length} مقال؟`)) return;
 
+    await runAction(() => blogApi.bulkAction(selectedIds, bulkAction as 'trash' | 'restore' | 'delete' | 'publish' | 'draft'), 'تم تنفيذ الإجراء');
     setSelectedIds([]);
     setBulkAction('');
-    await loadData();
   };
 
-  // Duplicate handler
-  const handleDuplicate = async (id: string) => {
-    await blogApi.duplicatePost(id);
-    await loadData();
-  };
-
-  // Move to trash handler
-  const handleMoveToTrash = async (id: string) => {
-    await blogApi.moveToTrash(id);
-    await loadData();
-  };
-
-  // Restore handler
-  const handleRestore = async (id: string) => {
-    await blogApi.restoreFromTrash(id);
-    await loadData();
-  };
-
-  // Permanently delete handler
-  const handleDeletePermanent = async (id: string) => {
-    if (confirm('هل أنت متأكد من الحذف النهائي لهذا المقال؟ لا يمكن التراجع عن هذا الإجراء.')) {
-      await blogApi.permanentlyDelete(id);
-      await loadData();
+  // Runs a list action, reports the result and reloads
+  const runAction = async (action: () => Promise<unknown>, successMessage: string) => {
+    try {
+      await action();
+      toast.success(successMessage);
+    } catch (e: any) {
+      toast.error(e.message || 'تعذر تنفيذ الإجراء');
     }
+    await loadData();
+  };
+
+  const handleDuplicate = (id: string) => runAction(() => blogApi.duplicatePost(id), 'تم إنشاء نسخة كمسودة');
+
+  const handleMoveToTrash = (id: string) => runAction(() => blogApi.moveToTrash(id), 'تم النقل إلى المهملات');
+
+  const handleRestore = (id: string) => runAction(() => blogApi.restoreFromTrash(id), 'تم استرجاع المقال كمسودة');
+
+  const handleDeletePermanent = async (id: string) => {
+    if (!confirm('هل أنت متأكد من الحذف النهائي لهذا المقال؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    await runAction(() => blogApi.permanentlyDelete(id), 'تم حذف المقال نهائياً');
   };
 
   return (
@@ -452,7 +438,7 @@ export function ArticlesListPage() {
               ) : (
                 filteredPosts.map((post) => {
                   const isChecked = selectedIds.includes(post.id);
-                  const seoScore = post.seoScore || 85;
+                  const seoScore = post.seoScore ?? 0;
                   const seoBadgeColor =
                     seoScore >= 80
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'

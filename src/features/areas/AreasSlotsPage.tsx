@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Edit, Trash2, X, RefreshCw, Search, CalendarClock, CalendarOff, Copy } from 'lucide-react';
-import { api, SlotRow } from '../../lib/api';
+import { api, SlotRow, SITE_URL } from '../../lib/api';
 import { useToast } from '../../shared/components/ui/Toast';
 import { formatDay, formatSlotLabel, todayCairo } from '../../shared/utils/format';
 
@@ -150,7 +150,7 @@ export function AreasSlotsPage() {
                 <tr key={a.id} className={`hover:bg-slate-50 ${a.is_active ? '' : 'opacity-60'}`}>
                   <td className="py-3.5 px-4">
                     <div className="font-bold text-slate-900">{a.name_ar}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">/areas/{a.slug}</div>
+                    <a href={`${SITE_URL}/areas/${a.slug}`} target="_blank" rel="noopener noreferrer" className="text-[11px] text-slate-400 font-mono hover:text-emerald-700 hover:underline">/areas/{a.slug} ↗</a>
                   </td>
                   <td className="py-3.5 px-4 text-slate-600">{a.city_ar}</td>
                   <td className="py-3.5 px-4 font-semibold">

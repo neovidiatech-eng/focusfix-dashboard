@@ -112,6 +112,23 @@ export const api = {
   createService: (data: unknown) => request('/catalog/admin/services', json('POST', data)),
   updateService: (id: string, data: unknown) => request(`/catalog/admin/services/${id}`, json('PUT', data)),
   deleteService: (id: string) => request(`/catalog/admin/services/${id}`, { method: 'DELETE' }),
+  updateDeviceType: (id: string, data: unknown) => request(`/catalog/admin/device-types/${id}`, json('PUT', data)),
+
+  // Media — multipart, so the browser sets its own Content-Type boundary
+  async uploadImage(file: File, alt?: string): Promise<{ id: string; url: string; width: number; height: number }> {
+    const form = new FormData();
+    form.append('file', file);
+    if (alt) form.append('alt', alt);
+    const token = localStorage.getItem('focusfix_admin_token');
+    const res = await authFetch(`${API_BASE_URL}/media/admin/upload`, {
+      method: 'POST',
+      body: form,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(body?.error || 'فشل رفع الصورة');
+    return body;
+  },
 
   // Messages
   getMessages: () => request('/contact/admin/messages'),

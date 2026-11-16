@@ -4,9 +4,12 @@ import { api } from '../../lib/api';
 import { useToast } from '../../shared/components/ui/Toast';
 import { ImageField } from '../../shared/components/ui/ImageField';
 
+// Ask Unsplash/imgix for a thumbnail-sized file instead of the full 600px photo
+const thumbUrl = (src: string) => (src.includes('images.unsplash.com') ? src.replace(/([?&])w=\d+/, '$1w=96').replace(/([?&])h=\d+/, '$1h=96') : src);
+
 function Thumb({ src }: { src?: string | null }) {
   return src ? (
-    <img src={src} alt="" className="h-10 w-10 shrink-0 rounded-lg bg-slate-50 object-contain ring-1 ring-slate-200" />
+    <img src={thumbUrl(src)} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-lg bg-slate-50 object-cover ring-1 ring-slate-200" />
   ) : (
     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-50 text-slate-300 ring-1 ring-dashed ring-slate-200" title="بدون صورة">
       <ImageIcon className="h-4 w-4" />

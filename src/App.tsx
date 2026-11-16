@@ -17,6 +17,7 @@ const CategoriesManagerPage = lazy(() => import('./features/blog/pages/Categorie
 const TagsManagerPage = lazy(() => import('./features/blog/pages/TagsManagerPage').then((m) => ({ default: m.TagsManagerPage })));
 const AuthorsManagerPage = lazy(() => import('./features/blog/pages/AuthorsManagerPage').then((m) => ({ default: m.AuthorsManagerPage })));
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const TrackingCodesPage = lazy(() => import('./features/settings/TrackingCodesPage').then((m) => ({ default: m.TrackingCodesPage })));
 const AuditLogPage = lazy(() => import('./features/audit/AuditLogPage').then((m) => ({ default: m.AuditLogPage })));
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -57,6 +58,7 @@ export default function App() {
             <Route path="blog/tags" element={<TagsManagerPage />} />
             <Route path="blog/authors" element={<AuthorsManagerPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="tracking" element={<TrackingCodesPage />} />
             <Route path="audit" element={<AuditLogPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/overview" replace />} />

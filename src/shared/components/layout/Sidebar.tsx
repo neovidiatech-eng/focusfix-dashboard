@@ -8,6 +8,7 @@ import {
   Newspaper,
   Settings,
   ShieldCheck,
+  Code2,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -27,6 +28,7 @@ export function Sidebar({ badges = { bookings: 0 }, mobileOpen = false, onClose 
     { to: '/areas', label: 'المناطق والمواعيد', icon: MapPin },
     { to: '/blog', label: 'المدونة (CMS)', icon: Newspaper },
     { to: '/settings', label: 'المحتوى والإعدادات', icon: Settings },
+    { to: '/tracking', label: 'أكواد التتبع (هيدر وفوتر)', icon: Code2 },
     { to: '/audit', label: 'سجل التدقيق (Audit)', icon: ShieldCheck },
   ];
 

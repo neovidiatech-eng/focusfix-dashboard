@@ -139,4 +139,7 @@ export const api = {
   // Settings
   getSettings: () => request('/settings/admin'),
   updateSettings: (settings: Array<{ key: string; value: string }>) => request('/settings/admin', json('PUT', { settings })),
+  getTrackingCodes: () => request<{ head: string; body: string; footer: string }>('/settings/admin/codes'),
+  updateTrackingCodes: (codes: { head: string; body: string; footer: string }) =>
+    request<{ head: string; body: string; footer: string }>('/settings/admin/codes', json('PUT', codes)),
 };
